@@ -1,0 +1,43 @@
+  /* Styles for the body and layout */
+  body {
+    width: 400px;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+/* Styles for the statistics container */
+.stats-container {
+    margin-bottom: 20px;
+}
+/* Styles for the chart container */
+.chart-container {
+    height: 300px;
+}
+/* Styles for the select dropdown */
+select {
+    margin-bottom: 10px;
+    padding: 5px;
+    width: 100%;
+}
+/* Styles for error messages */
+.error {
+    color: red;
+    font-style: italic;
+}
+/* Styles for unordered lists */
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+/* Styles for list items */
+li {
+    margin: 5px 0;
+    padding: 5px;
+    background: #f5f5f5;
+    border-radius: 3px;
+}
+/* Styles for section headings */
+h3 {
+    color: #333;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+}
