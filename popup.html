@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Study Tracker</title>
+    <!-- Link Css file for styling -->
+    <link rel="stylesheet" href="css/popup.css">
+</head>
+<body>
+    <!-- Dropdown for selecting report period -->
+    <select id="reportPeriod">
+        <option value="daily">Today</option>
+        <option value="weekly">This Week</option>
+        <option value="monthly">This Month</option>
+    </select>
+
+    <div class="stats-container">
+        <h3>Study Statistics</h3>
+        <!-- Container for displaying study statistics -->
+        <div id="studyStats"></div>
+    </div>
+
+    <!-- study tracking graph -->
+    <div class="chart-container">
+        <!-- Canvas for rendering the statistics chart -->
+        <canvas id="statsChart"></canvas>
+    </div>
+
+    <!-- Script files for charting library -->
+    <script src="lib/chart.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>
