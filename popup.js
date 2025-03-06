@@ -1,48 +1,112 @@
-const browser = window.browser || window.chrome;
+document.addEventListener("DOMContentLoaded", () => {
+  const browser = window.browser || window.chrome;
+  const elements = {
+    timer: document.getElementById("startTime"),
+    domain: document.getElementById("currentDomain"),
+    stats: document.getElementById("studyStats"),
+    chart: document.getElementById("statsChart").getContext("2d"),
+  };
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadStats();
-    document.getElementById('reportPeriod').addEventListener('change', loadStats);
-});
+  let chart = null;
+  let timerInterval = null;
 
-function loadStats() {
-    const stats = {
-        'khanacademy.org': 45,
-        'coursera.org': 30
-    };
-    displayStats(stats);
-    updateChart(stats);
-}
+  // Initial load
+  loadData();
+  setInterval(loadData, 60000);
 
-function displayStats(stats) {
-    const studyStatsDiv = document.getElementById('studyStats');
-    studyStatsDiv.innerHTML = Object.entries(stats)
-        .map(([site, minutes]) => `<p>${site}: ${minutes} min</p>`)
-        .join('');
-}
+  async function loadData() {
+    try {
+      const data = await browser.storage.local.get("studySessionData");
+      if (!data.studySessionData) return;
 
-function updateChart(stats) {
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    const labels = Object.keys(stats);
-    const data = Object.values(stats);
+      updateTimerDisplay(data.studySessionData);
+      updateStatsDisplay(data.studySessionData);
+      updateChart(data.studySessionData);
+    } catch (error) {
+      elements.stats.innerHTML = "Error loading data";
+    }
+  }
 
-    if (window.myChart) {
-        window.myChart.destroy();
+  function updateTimerDisplay(sessionData) {
+    clearInterval(timerInterval);
+
+    if (!sessionData.currentDomain || !sessionData.startTime) {
+      elements.timer.textContent = "No active session";
+      return;
     }
 
-    window.myChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Minutes Studied',
-                data: data,
-                backgroundColor: '#4CAF50'
-            }]
+    const today = new Date().toISOString().split("T")[0];
+    const storedSeconds =
+      sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
+
+    timerInterval = setInterval(() => {
+      const liveSeconds = Math.floor(
+        (Date.now() - sessionData.startTime) / 1000
+      );
+      elements.timer.textContent = formatTime(
+        (storedSeconds + liveSeconds) * 1000
+      );
+    }, 1000);
+
+    elements.domain.textContent = sessionData.currentDomain;
+  }
+
+  function updateStatsDisplay(sessionData) {
+    const today = new Date().toISOString().split("T")[0];
+    const stats = sessionData.dailyStats[today] || {};
+
+    const statsList = Object.entries(stats)
+      .filter(([key]) => key !== "visitedUrls")
+      .map(([domain, seconds]) => {
+        const minutes = Math.floor(seconds / 60);
+        return `<li>${domain}: ${minutes}m (${seconds}s)</li>`;
+      });
+
+    elements.stats.innerHTML = statsList.length
+      ? `<ul>${statsList.join("")}</ul>`
+      : "No activity today";
+  }
+
+  function updateChart(sessionData) {
+    if (chart) chart.destroy();
+
+    const today = new Date().toISOString().split("T")[0];
+    const stats = sessionData.dailyStats[today] || {};
+
+    const chartData = Object.entries(stats)
+      .filter(([key]) => key !== "visitedUrls")
+      .map(([domain, seconds]) => ({
+        domain,
+        minutes: Math.floor(seconds / 60),
+      }));
+
+    chart = new Chart(elements.chart, {
+      type: "bar",
+      data: {
+        labels: chartData.map((item) => item.domain),
+        datasets: [
+          {
+            label: "Minutes",
+            data: chartData.map((item) => item.minutes),
+            backgroundColor: "rgba(75, 192, 192, 0.2)",
+            borderColor: "rgba(75, 192, 192, 1)",
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true },
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
-        }
+      },
     });
-}
+  }
+
+  function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+});

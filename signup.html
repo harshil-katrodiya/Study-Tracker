@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signup</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to right, #6a11cb, #2575fc);
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            /* Hide default scrollbar */
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            width: 400px;
+            text-align: center;
+            overflow-y: auto;
+            /* Enable vertical scrolling */
+            max-height: 90vh;
+            /* Limit height for scrolling */
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input:focus {
+            border-color: #6a11cb;
+            box-shadow: 0 0 5px rgba(106, 17, 203, 0.5);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #6a11cb;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        button:hover {
+            background-color: #2575fc;
+            transform: translateY(-2px);
+        }
+
+        .error {
+            color: red;
+            font-style: italic;
+            margin: 5px 0;
+            white-space: pre-line;
+            /* Preserve line breaks */
+            text-align: left;
+            /* Align text to the left */
+        }
+
+        .link {
+            margin-top: 10px;
+            display: block;
+            color: #6a11cb;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .link:hover {
+            color: #2575fc;
+            text-decoration: underline;
+        }
+
+        /* Custom Scrollbar Styles */
+        .container::-webkit-scrollbar {
+            width: 12px;
+            /* Width of the scrollbar */
+        }
+
+        .container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            /* Background of the scrollbar track */
+            border-radius: 10px;
+            /* Rounded corners for the track */
+        }
+
+        .container::-webkit-scrollbar-thumb {
+            background: #6a11cb;
+            /* Color of the scrollbar thumb */
+            border-radius: 10px;
+            /* Rounded corners for the thumb */
+        }
+
+        .container::-webkit-scrollbar-thumb:hover {
+            background: #2575fc;
+            /* Color of the thumb on hover */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Signup</h2>
+        <form id="signupForm">
+            <input type="text" id="firstName" placeholder="First Name">
+            <div id="firstNameError" class="error"></div>
+            <input type="text" id="lastName" placeholder="Last Name">
+            <div id="lastNameError" class="error"></div>
+            <input type="email" id="email" placeholder="Email">
+            <div id="emailError" class="error"></div>
+            <input type="password" id="password" placeholder="Password">
+            <div id="passwordError" class="error"></div>
+            <input type="password" id="rePassword" placeholder="Re-enter Password">
+            <div id="rePasswordError" class="error"></div>
+            <button type="submit">Signup</button>
+        </form>
+        <a href="login.html" class="link">Already have an account? Login here</a>
+    </div>
+    <script src="signup.js"></script>
+</body>
+
+</html>
