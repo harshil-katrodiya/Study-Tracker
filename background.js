@@ -118,7 +118,7 @@ function trackTime(domain) {
 }
 
 // Save current session time to the daily stats
-function saveCurrentStats() {
+async function saveCurrentStats() {
   if (!studySessionData.currentDomain || !studySessionData.startTime) return;
 
   const today = new Date().toISOString().split("T")[0];
@@ -130,6 +130,29 @@ function saveCurrentStats() {
     elapsedSeconds;
   studySessionData.startTime = null;
   saveToStorage();
+
+  // Prepare data to send
+  const studyData = {
+    domain: studySessionData.currentDomain,
+    date: today,
+    timeSpent: elapsedSeconds,
+  };
+
+  // Send study data to the server
+  try {
+    const response = await fetch("http://localhost:5001/saveStudyData", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ studyData }),
+    });
+
+    const data = await response.json();
+    console.log("📤 Study Data Sent:", data);
+  } catch (error) {
+    console.error("❌ Error sending study data:", error);
+  }
 }
 
 // Store the visited URL in the daily stats

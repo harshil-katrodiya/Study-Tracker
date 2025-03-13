@@ -1,4 +1,4 @@
-const SERVER_URL = "http://localhost:5000";
+const SERVER_URL = "http://localhost:5001";
 
 function sendStudyData(data) {
   fetch(`${SERVER_URL}/saveStudyData`, {
