@@ -1,32 +1,157 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Study Tracker</title>
-    <!-- Link Css file for styling -->
-    <link rel="stylesheet" href="css/popup.css">
+    <title>Study Habit Tracker</title>
+    <script src="chart.js"></script>
+    <style>
+        body {
+            width: 400px;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        .stats-container {
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            height: 300px;
+        }
+
+        select {
+            margin-bottom: 10px;
+            padding: 5px;
+            width: 100%;
+        }
+
+        .error {
+            color: red;
+            font-style: italic;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin: 5px 0;
+            padding: 5px;
+            background: #f5f5f5;
+            border-radius: 3px;
+        }
+
+        h3 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .whitelist-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f8f8;
+            border-radius: 5px;
+        }
+        
+        .whitelist-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .whitelist-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .whitelist-input button {
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .whitelist-note {
+            font-size: 12px;
+            color: #666;
+            margin: 5px 0;
+            font-style: italic;
+        }
+        
+        .domain-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: white;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        
+        .remove-domain {
+            color: #ff4444;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0 5px;
+        }
+    </style>
 </head>
+
 <body>
-    <!-- Dropdown for selecting report period -->
+    <script>
+        // Check if user is logged in
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+    </script>
+
     <select id="reportPeriod">
         <option value="daily">Today</option>
         <option value="weekly">This Week</option>
         <option value="monthly">This Month</option>
     </select>
 
+    <div class="whitelist-container">
+        <h3>Website Whitelist</h3>
+        <div class="whitelist-input">
+            <input type="text" id="domainInput" placeholder="Enter domain (e.g., example.com)">
+            <button id="addDomain">Add Website</button>
+        </div>
+        <p class="whitelist-note">Leave empty to track all websites</p>
+        <ul id="whitelistedDomains"></ul>
+    </div>
+
     <div class="stats-container">
-        <h3>Study Statistics</h3>
-        <!-- Container for displaying study statistics -->
+        <h3>User Statistics</h3>
         <div id="studyStats"></div>
     </div>
 
-    <!-- study tracking graph -->
+    <!-- <div class="stats-container">
+        <h3>Social Media Usage</h3>
+        <div id="socialStats"></div>
+    </div> -->
+
+
+    <div class="stats-container">
+        <!-- New section to display the current domain and start time -->
+        <div id="currentDomain" style="font-weight: bold; margin-bottom: 10px;"></div>
+        <div id="startTime" style="margin-bottom: 10px;"></div>
+    </div>
+
     <div class="chart-container">
-        <!-- Canvas for rendering the statistics chart -->
         <canvas id="statsChart"></canvas>
     </div>
 
-    <!-- Script files for charting library -->
-    <script src="lib/chart.js"></script>
+    <script src="domains.js"></script>
     <script src="popup.js"></script>
+    <script src="lib/chart.js"></script>
 </body>
+
 </html>

@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "Study Tracker",
+  "version": "1.0",
+  "description": "Track and analyze your study habits",
+  "permissions": [
+    "storage",
+    "tabs",
+    "notifications",
+    "webNavigation",
+    "cookies",
+    "<all_urls>"
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "web_accessible_resources": [
+    "signup.html",
+    "signup.js",
+    "login.html",
+    "login.js"
+  ]
+}
