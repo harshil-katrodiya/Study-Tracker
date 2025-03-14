@@ -47,6 +47,59 @@
             border-bottom: 2px solid #eee;
             padding-bottom: 5px;
         }
+
+        .whitelist-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f8f8;
+            border-radius: 5px;
+        }
+        
+        .whitelist-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .whitelist-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .whitelist-input button {
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .whitelist-note {
+            font-size: 12px;
+            color: #666;
+            margin: 5px 0;
+            font-style: italic;
+        }
+        
+        .domain-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: white;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        
+        .remove-domain {
+            color: #ff4444;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0 5px;
+        }
     </style>
 </head>
 
@@ -65,16 +118,20 @@
         <option value="monthly">This Month</option>
     </select>
 
+    <div class="whitelist-container">
+        <h3>Website Whitelist</h3>
+        <div class="whitelist-input">
+            <input type="text" id="domainInput" placeholder="Enter domain (e.g., example.com)">
+            <button id="addDomain">Add Website</button>
+        </div>
+        <p class="whitelist-note">Leave empty to track all websites</p>
+        <ul id="whitelistedDomains"></ul>
+    </div>
+
     <div class="stats-container">
         <h3>User Statistics</h3>
         <div id="studyStats"></div>
     </div>
-
-    <!-- <div class="stats-container">
-        <h3>Social Media Usage</h3>
-        <div id="socialStats"></div>
-    </div> -->
-
 
     <div class="stats-container">
         <!-- New section to display the current domain and start time -->

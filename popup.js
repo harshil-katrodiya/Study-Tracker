@@ -10,6 +10,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let chart = null;
   let timerInterval = null;
 
+  // Add new elements
+  const domainInput = document.getElementById("domainInput");
+  const addDomainButton = document.getElementById("addDomain");
+  const whitelistContainer = document.getElementById("whitelistedDomains");
+
+  // Load whitelist and add event listeners
+  loadWhitelist();
+  addDomainButton.addEventListener("click", addDomain);
+
   // Initial load
   loadData();
   setInterval(loadData, 60000);
@@ -51,12 +60,19 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.domain.textContent = sessionData.currentDomain;
   }
 
-  function updateStatsDisplay(sessionData) {
+  async function updateStatsDisplay(sessionData) {
+    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    const whitelistedDomains = response.domains;
+
     const today = new Date().toISOString().split("T")[0];
     const stats = sessionData.dailyStats[today] || {};
 
     const statsList = Object.entries(stats)
-      .filter(([key]) => key !== "visitedUrls")
+      .filter(([key]) => {
+        // Show all domains if whitelist is empty, otherwise show only whitelisted domains
+        return key !== "visitedUrls" && 
+               (whitelistedDomains.length === 0 || whitelistedDomains.includes(key));
+      })
       .map(([domain, seconds]) => {
         const minutes = Math.floor(seconds / 60);
         return `<li>${domain}: ${minutes}m (${seconds}s)</li>`;
@@ -67,14 +83,20 @@ document.addEventListener("DOMContentLoaded", () => {
       : "No activity today";
   }
 
-  function updateChart(sessionData) {
+  async function updateChart(sessionData) {
     if (chart) chart.destroy();
+
+    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    const whitelistedDomains = response.domains;
 
     const today = new Date().toISOString().split("T")[0];
     const stats = sessionData.dailyStats[today] || {};
 
     const chartData = Object.entries(stats)
-      .filter(([key]) => key !== "visitedUrls")
+      .filter(([key]) => {
+        return key !== "visitedUrls" && 
+               (whitelistedDomains.length === 0 || whitelistedDomains.includes(key));
+      })
       .map(([domain, seconds]) => ({
         domain,
         minutes: Math.floor(seconds / 60),
@@ -108,5 +130,59 @@ document.addEventListener("DOMContentLoaded", () => {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${hours}h ${minutes}m ${seconds}s`;
+  }
+
+  async function loadWhitelist() {
+    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    displayWhitelistedDomains(response.domains);
+  }
+
+  function displayWhitelistedDomains(domains) {
+    whitelistContainer.innerHTML = domains.map(domain => `
+      <li class="domain-item">
+        <span>${domain}</span>
+        <span class="remove-domain" data-domain="${domain}">×</span>
+      </li>
+    `).join('');
+
+    document.querySelectorAll('.remove-domain').forEach(button => {
+      button.addEventListener('click', removeDomain);
+    });
+  }
+
+  async function addDomain() {
+    let domain = domainInput.value.trim().toLowerCase();
+    if (!domain) return;
+
+    // Add http:// if no protocol is specified
+    if (!domain.includes('://')) {
+      domain = domain.replace('http://', '').replace('https://', '');
+      domain = domain.split('/')[0]; // Remove any paths
+    }
+
+    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    const domains = response.domains;
+
+    if (!domains.includes(domain)) {
+      domains.push(domain);
+      await browser.runtime.sendMessage({ 
+        type: "UPDATE_WHITELIST", 
+        domains 
+      });
+      domainInput.value = '';
+      loadWhitelist();
+    }
+  }
+
+  async function removeDomain(e) {
+    const domainToRemove = e.target.dataset.domain;
+    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    const domains = response.domains.filter(d => d !== domainToRemove);
+    
+    await browser.runtime.sendMessage({ 
+      type: "UPDATE_WHITELIST", 
+      domains 
+    });
+    loadWhitelist();
   }
 });
