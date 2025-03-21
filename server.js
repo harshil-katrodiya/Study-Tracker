@@ -42,14 +42,24 @@ app.post("/signup", async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
+    // Basic backend validation
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long." });
+    }
+
     // Check if user already exists
     const existingUser = await UserModel.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ error: "User already exists" });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists." });
+    }
 
-    // Hash password before saving
+    // Hash password and save user
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = new UserModel({
       firstName,
       lastName,
@@ -60,7 +70,7 @@ app.post("/signup", async (req, res) => {
 
     res.status(201).json({ message: "User registered successfully!" });
   } catch (error) {
-    res.status(500).json({ error: "Signup failed" });
+    res.status(500).json({ error: "Signup failed. Please try again." });
   }
 });
 
