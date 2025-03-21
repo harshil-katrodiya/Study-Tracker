@@ -21,8 +21,23 @@ document
       const data = await response.json();
 
       if (response.ok) {
-        sessionStorage.setItem("authToken", data.token);
-        window.location.href = "popup.html";
+        // Create session immediately after successful login
+        const session = {
+          token: data.token, // Use the token from your server response
+          lastActivity: new Date().getTime(),
+          userId: data.userId // Assuming your server sends a userId
+        };
+
+        // Save session and user data
+        localStorage.setItem('session', JSON.stringify(session));
+        localStorage.setItem('user', JSON.stringify({
+          email: email,
+          userId: data.userId,
+          // Add any other user data from your server response
+        }));
+
+        // Redirect to popup
+        window.location.href = 'popup.html';
       } else {
         alert("Login failed: " + data.error);
       }
