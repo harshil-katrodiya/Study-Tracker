@@ -1,10 +1,9 @@
 console.log("Background script is running");
 
-const browser = window.browser || window.chrome;
-console.log("Using browser API:", browser === window.browser ? "Firefox" : "Chrome");
+const browserAPI = window.browser || window.chrome;
+console.log("Using browser API:", browserAPI === window.browser ? "Firefox" : "Chrome");
 
 // URL validation function
-// This function checks if the URL is a valid URL and not a resource URL 
 function isValidUrl(url) {
   try {
     const urlObj = new URL(url);
@@ -58,7 +57,7 @@ const resourceDomains = {
 };
 
 // Initialize data from storage
-browser.storage.local.get(["whitelistedDomains", "studySessionData"]).then((data) => {
+browserAPI.storage.local.get(["whitelistedDomains", "studySessionData"]).then((data) => {
   console.log("Initializing data from storage:", data);
   if (data.whitelistedDomains) {
     whitelistedDomains = data.whitelistedDomains;
@@ -73,21 +72,21 @@ browser.storage.local.get(["whitelistedDomains", "studySessionData"]).then((data
 });
 
 // Tab monitoring: Listen for tab activation, update, and removal
-browser.tabs.onActivated.addListener(handleTabActivation);
-browser.tabs.onUpdated.addListener(handleTabUpdate);
-browser.tabs.onRemoved.addListener(handleTabRemoval);
+browserAPI.tabs.onActivated.addListener(handleTabActivation);
+browserAPI.tabs.onUpdated.addListener(handleTabUpdate);
+browserAPI.tabs.onRemoved.addListener(handleTabRemoval);
 
 // Periodic check to detect tab changes
 setInterval(checkActiveTab, 60000);
 
 async function checkActiveTab() {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
   if (tabs[0]?.url) handleTabChange(tabs[0]);
 }
 
 // Handle tab activation
 async function handleTabActivation(activeInfo) {
-  const tab = await browser.tabs.get(activeInfo.tabId);
+  const tab = await browserAPI.tabs.get(activeInfo.tabId);
   if (tab?.url && isValidUrl(tab.url)) handleTabChange(tab);
 }
 
@@ -203,7 +202,7 @@ function storeVisitedUrl(url) {
 // Save the study session data to local storage
 function saveToStorage() {
   try {
-    browser.storage.local.set({ studySessionData })
+    browserAPI.storage.local.set({ studySessionData })
       .catch(error => console.error('Error saving to storage:', error));
   } catch (error) {
     console.error('Error in saveToStorage:', error);
@@ -240,8 +239,7 @@ function shouldAllowDomain(domain) {
 }
 
 // Website blocking implementation
-// This function listens for web requests and blocks requests to non-whitelisted domains
-browser.webRequest.onBeforeRequest.addListener(
+browserAPI.webRequest.onBeforeRequest.addListener(
   function(details) {
     try {
       // Always allow extension and browser resources
@@ -282,13 +280,15 @@ browser.webRequest.onBeforeRequest.addListener(
 );
 
 // Handle messages from popup
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "GET_WHITELIST") {
     sendResponse({ domains: whitelistedDomains });
   } else if (request.type === "UPDATE_WHITELIST") {
     whitelistedDomains = request.domains;
-    browser.storage.local.set({ whitelistedDomains });
+    browserAPI.storage.local.set({ whitelistedDomains });
     sendResponse({ success: true });
+  } else if (request.action === "openDonate") {
+    browserAPI.tabs.create({url: browserAPI.runtime.getURL('donate.html')});
   }
   return true;
 });

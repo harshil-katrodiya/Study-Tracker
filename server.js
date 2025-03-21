@@ -1,4 +1,5 @@
 require("dotenv").config();
+const stripe = require('stripe')('sk_test_51R4TV5CtaNmtadhYmdeRteYeoN4geSwEynfxN3qnl6FgKXRKVFW9AZ15uBA1VLQnduj0PQ1VUIoOQBGG5tvjyWih002HgRQOfl');
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -7,6 +8,7 @@ const jwt = require("jsonwebtoken");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const YOUR_DOMAIN = `http://localhost:${PORT}`;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -133,6 +135,81 @@ app.get("/getStudyData", verifyToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Error fetching data" });
   }
+});
+
+// get donate page returning html file
+app.get('/donate', (req, res) => {
+  res.sendFile(__dirname + '/donate.html');
+});
+
+app.post('/donate', async (req, res) => {
+  // let amount = 20;
+  const { amount, email } = req.body;
+
+  const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        price_data: {
+          currency: "cad",
+          product_data: {
+            name: "Donation",
+          },
+          unit_amount: amount * 100, // Amount in cents (100 = $1.00)
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: `${YOUR_DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${YOUR_DOMAIN}/cancel`,
+    customer_email: email,
+  });
+
+  res.redirect(303, session.url);
+});
+
+app.get('/success', async (req, res) => {
+  const sessionId = req.query.session_id; // Get session_id from URL
+
+  if (!sessionId) {
+    return res.status(400).send('Session ID is required.');
+  }
+
+  try {
+    // Retrieve the Checkout Session
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    // Get the Payment Intent ID
+    const paymentIntentId = session.payment_intent;
+
+    if (paymentIntentId) {
+      // Retrieve Payment Intent details
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      console.log(paymentIntent);
+
+      // Get the Charge ID
+      const chargeId = paymentIntent.latest_charge;
+
+      console.log(chargeId)
+
+      // Retrieve Charge details to get the receipt URL
+      const charge = await stripe.charges.retrieve(chargeId);
+
+      console.log(charge)
+
+      res.redirect(303, charge.receipt_url);
+    } else {
+      res.send('Payment successful, but no receipt found.');
+    }
+  } catch (error) {
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+
+
+app.get('/cancel', (req, res) => {
+    res.send('Cancelled');
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -163,7 +163,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // These functions manage the whitelist of domains that are allowed to be accessed.
   async function addDomain() {
     let domain = domainInput.value.trim().toLowerCase();
     if (!domain) return;
