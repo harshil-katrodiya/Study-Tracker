@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 
-
 <head>
     <title>Study Habit Tracker</title>
     <script src="chart.js"></script>
+    <meta charset="UTF-8">
     <style>
         body {
             width: 400px;
@@ -50,69 +50,145 @@
         }
 
         .whitelist-container {
-            margin-bottom: 20px;
+            background: #f8f9fa;
             padding: 15px;
-            background: #f8f8f8;
-            border-radius: 5px;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
         
-        .whitelist-input {
+        .input-group {
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
         
-        .whitelist-input input {
+        #domainInput {
             flex: 1;
-            padding: 8px;
+            padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
+            font-size: 14px;
         }
         
-        .whitelist-input button {
-            padding: 8px 15px;
-            background: #4CAF50;
+        .primary-button {
+            padding: 8px 16px;
+            background: #2196F3;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
         }
         
-        .whitelist-note {
-            font-size: 12px;
-            color: #666;
-            margin: 5px 0;
-            font-style: italic;
+        .warning-text {
+            color: #dc3545;
+            font-size: 14px;
+            margin: 10px 0;
         }
         
-        .domain-item {
+        #whitelistedDomains {
+            list-style: none;
+            padding: 0;
+        }
+        
+        #whitelistedDomains li {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 5px 10px;
+            padding: 8px 12px;
             background: white;
             margin: 5px 0;
-            border-radius: 3px;
+            border-radius: 4px;
+            border: 1px solid #eee;
         }
         
         .remove-domain {
-            color: #ff4444;
+            color: #dc3545;
             cursor: pointer;
-            font-weight: bold;
-            padding: 0 5px;
+            padding: 4px 8px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .logout-button {
+            padding: 8px 16px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .logout-button:hover {
+            background-color: #c82333;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .donate-button {
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .donate-button:hover {
+            background-color: #218838;
         }
     </style>
 </head>
 
-
 <body>
     <script>
-        // Check if user is logged in
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (!user) {
-            window.location.href = 'login.html';
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if user is logged in
+            const session = JSON.parse(localStorage.getItem('session'));
+            if (!session || !session.token || isSessionExpired(session)) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Update last activity
+            updateLastActivity();
+        });
+
+        function isSessionExpired(session) {
+            const expirationTime = 24 * 60 * 60 * 1000; // 24 hours
+            const now = new Date().getTime();
+            return now - session.lastActivity > expirationTime;
+        }
+
+        function updateLastActivity() {
+            const session = JSON.parse(localStorage.getItem('session'));
+            if (session) {
+                session.lastActivity = new Date().getTime();
+                localStorage.setItem('session', JSON.stringify(session));
+            }
         }
     </script>
+
+    <div class="header">
+        <h2>Study Habit Tracker</h2>
+        <div class="header-buttons">
+            <a href="http://localhost:5001/donate" target="_blank" id="donateBtn" class="donate-button">Donate</a>
+            <button id="logoutBtn" class="logout-button">Logout</button>
+        </div>
+    </div>
 
     <select id="reportPeriod">
         <option value="daily">Today</option>
@@ -121,26 +197,26 @@
     </select>
 
     <div class="whitelist-container">
-        <h3>Website Whitelist</h3>
-        <div class="whitelist-input">
-            <input type="text" id="domainInput" placeholder="Enter domain (e.g., example.com)">
-            <button id="addDomain">Add Website</button>
+        <h3>Website Access Control</h3>
+        <div class="whitelist-manager">
+            <div class="input-group">
+                <input type="text" id="domainInput" placeholder="Enter website domain (e.g., google.com)">
+                <button id="addDomain" class="primary-button">Add to Whitelist</button>
+            </div>
+            <div class="whitelist-info">
+                <p class="warning-text">Only whitelisted websites will be accessible. Leave empty to access all websites.</p>
+                <div class="whitelist-sites">
+                    <h4>Allowed Websites:</h4>
+                    <ul id="whitelistedDomains"></ul>
+                </div>
+            </div>
         </div>
-        <p class="whitelist-note">Leave empty to track all websites</p>
-        <ul id="whitelistedDomains"></ul>
     </div>
 
     <div class="stats-container">
         <h3>User Statistics</h3>
-        <h3>User Statistics</h3>
         <div id="studyStats"></div>
     </div>
-
-    <!-- <div class="stats-container">
-        <h3>Social Media Usage</h3>
-        <div id="socialStats"></div>
-    </div> -->
-
 
     <div class="stats-container">
         <!-- New section to display the current domain and start time -->
@@ -154,10 +230,34 @@
 
     <script src="domains.js"></script>
     <script src="popup.js"></script>
-    <script src="domains.js"></script>
-    <script src="popup.js"></script>
     <script src="lib/chart.js"></script>
-</body>
 
+    <script>
+        // Add this to handle logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            // Clear session data
+            localStorage.removeItem('session');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = 'login.html';
+        });
+
+        // Updated donate button handler for Firefox
+        document.addEventListener('DOMContentLoaded', function() {
+            const donateBtn = document.getElementById('donateBtn');
+            if (donateBtn) {
+                donateBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    browser.tabs.create({
+                        url: browser.runtime.getURL('donate.html')
+                    }).catch(error => {
+                        console.error('Error opening donate page:', error);
+                    });
+                });
+            }
+        });
+    </script>
+</body>
 
 </html>
