@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -14,14 +15,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+// -------------------- DATABASE --------------------
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB Connection Error:", err));
 
+// -------------------- SCHEMAS --------------------
 const UserSchema = new mongoose.Schema({
   firstName: String,
   lastName: String,
@@ -40,6 +39,7 @@ const StudySchema = new mongoose.Schema({
 
 const StudyModel = mongoose.model("Study", StudySchema);
 
+// -------------------- ROUTES --------------------
 app.post("/signup", async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
@@ -59,7 +59,6 @@ app.post("/signup", async (req, res) => {
       password: hashedPassword,
     });
     await newUser.save();
-
     res.status(201).json({ message: "User registered successfully!" });
   } catch (error) {
     res.status(500).json({ error: "Signup failed" });
@@ -166,50 +165,155 @@ app.post('/donate', async (req, res) => {
   });
 
   res.redirect(303, session.url);
+  });
+
+  app.get('/success', async (req, res) => {
+    const sessionId = req.query.session_id; // Get session_id from URL
+  
+    if (!sessionId) {
+      return res.status(400).send('Session ID is required.');
+    }
+  
+    try {
+      // Retrieve the Checkout Session
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+  
+      // Get the Payment Intent ID
+      const paymentIntentId = session.payment_intent;
+  
+      if (paymentIntentId) {
+        // Retrieve Payment Intent details
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        console.log(paymentIntent);
+  
+        // Get the Charge ID
+        const chargeId = paymentIntent.latest_charge;
+  
+        console.log(chargeId)
+  
+        // Retrieve Charge details to get the receipt URL
+        const charge = await stripe.charges.retrieve(chargeId);
+  
+        console.log(charge)
+  
+        res.redirect(303, charge.receipt_url);
+      } else {
+        res.send('Payment successful, but no receipt found.');
+      }
+    } catch (error) {
+      res.status(500).send(`Error: ${error.message}`);
+    }
+  });
+  
+  
+  
+  app.get('/cancel', (req, res) => {
+      res.send('Cancelled');
+  });
+  
+// -------------------- GENERATE OTP --------------------
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// -------------------- Temporary Storage for OTPs --------------------
+const otpStorage = {};
+
+// -------------------- SEND OTP --------------------
+app.post("/send-otp", async (req, res) => {
+    console.log("Received OTP request:", req.body);
+    const { email } = req.body;
+
+    try {
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "Email not registered." });
+        }
+
+        const otp = generateOTP();
+        console.log(`Generated OTP for ${email}: ${otp}`);
+
+        otpStorage[email] = otp; // Store OTP temporarily
+
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
+
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "🔐 Password Reset Request - Your OTP Inside",
+          html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
+                  <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                      <h2 style="color: #2d89ef;">Password Reset Request</h2>
+                      <p>Hello,</p>
+                      <p>We received a request to reset your password. Use the following One-Time Password (OTP) to proceed:</p>
+                      <p style="font-size: 24px; font-weight: bold; color: #2d89ef; margin: 20px 0;">${otp}</p>
+                      <p><strong>This OTP is valid for 10 minutes.</strong></p>
+                      <p>If you didn’t request a password reset, please ignore this email or contact support if you have concerns.</p>
+                      <hr style="margin: 30px 0;">
+                      <p style="font-size: 12px; color: #777;">Thank you,<br>The Support Team</p>
+                  </div>
+              </div>
+          `
+      };
+      
+        await transporter.sendMail(mailOptions);
+        console.log("OTP sent successfully to:", email);
+        res.json({ message: "OTP sent to email." });
+
+    } catch (error) {
+        console.error("Error sending OTP:", error);
+        res.status(500).json({ message: "Failed to send OTP." });
+    }
 });
 
-app.get('/success', async (req, res) => {
-  const sessionId = req.query.session_id; // Get session_id from URL
+// -------------------- OTP VERIFICATION --------------------
+app.post("/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
 
-  if (!sessionId) {
-    return res.status(400).send('Session ID is required.');
+  console.log("Received OTP verification request:", { email, otp });
+  console.log("Stored OTP for this email:", otpStorage[email]); // Debugging line
+
+  if (otpStorage[email] && otpStorage[email] === otp) {
+      console.log("✅ OTP Matched!");
+      delete otpStorage[email]; // Remove OTP after successful verification
+      res.json({ message: "OTP verified successfully!" });
+  } else {
+      console.log("❌ Invalid OTP!");
+      res.status(400).json({ message: "Invalid or expired OTP." });
+  }
+});
+
+// -------------------- RESET PASSWORD --------------------
+app.post("/reset-password", async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ message: "Missing email or password." });
   }
 
   try {
-    // Retrieve the Checkout Session
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    // Get the Payment Intent ID
-    const paymentIntentId = session.payment_intent;
-
-    if (paymentIntentId) {
-      // Retrieve Payment Intent details
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      console.log(paymentIntent);
-
-      // Get the Charge ID
-      const chargeId = paymentIntent.latest_charge;
-
-      console.log(chargeId)
-
-      // Retrieve Charge details to get the receipt URL
-      const charge = await stripe.charges.retrieve(chargeId);
-
-      console.log(charge)
-
-      res.redirect(303, charge.receipt_url);
-    } else {
-      res.send('Payment successful, but no receipt found.');
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
     }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    console.log(`🔐 Password reset for: ${email}`);
+    res.json({ message: "Password reset successfully!" });
   } catch (error) {
-    res.status(500).send(`Error: ${error.message}`);
+    console.error("Error resetting password:", error);
+    res.status(500).json({ message: "Failed to reset password." });
   }
 });
 
 
-
-app.get('/cancel', (req, res) => {
-    res.send('Cancelled');
-});
-
+// -------------------- START SERVER --------------------
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
