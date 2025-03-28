@@ -14,6 +14,7 @@ const YOUR_DOMAIN = `http://localhost:${PORT}`;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+app.use(express.static(__dirname));
 
 // -------------------- DATABASE --------------------
 mongoose.connect(process.env.MONGO_URI)
@@ -142,75 +143,78 @@ app.get('/donate', (req, res) => {
 });
 
 app.post('/donate', async (req, res) => {
-  // let amount = 20;
-  const { amount, email } = req.body;
+  try {
+    const { amount, email } = req.body;
+    console.log('Received donation request:', req.body); // Debug log
 
-  const session = await stripe.checkout.sessions.create({
-    line_items: [
-      {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
         price_data: {
-          currency: "cad",
+          currency: 'usd',
           product_data: {
-            name: "Donation",
+            name: 'Donation',
           },
-          unit_amount: amount * 100, // Amount in cents (100 = $1.00)
+          unit_amount: Math.round(amount * 100), // Convert to cents
         },
         quantity: 1,
-      },
-    ],
-    mode: 'payment',
-    success_url: `${YOUR_DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${YOUR_DOMAIN}/cancel`,
-    customer_email: email,
-  });
+      }],
+      mode: 'payment',
+      success_url: `${YOUR_DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${YOUR_DOMAIN}/cancel`,
+      customer_email: email,
+    });
 
-  res.redirect(303, session.url);
-  });
+    // Send JSON response instead of redirect
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
 
-  app.get('/success', async (req, res) => {
-    const sessionId = req.query.session_id; // Get session_id from URL
-  
-    if (!sessionId) {
-      return res.status(400).send('Session ID is required.');
+app.get('/success', async (req, res) => {
+  const sessionId = req.query.session_id; // Get session_id from URL
+
+  if (!sessionId) {
+    return res.status(400).send('Session ID is required.');
+  }
+
+  try {
+    // Retrieve the Checkout Session
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    // Get the Payment Intent ID
+    const paymentIntentId = session.payment_intent;
+
+    if (paymentIntentId) {
+      // Retrieve Payment Intent details
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      console.log(paymentIntent);
+
+      // Get the Charge ID
+      const chargeId = paymentIntent.latest_charge;
+
+      console.log(chargeId)
+
+      // Retrieve Charge details to get the receipt URL
+      const charge = await stripe.charges.retrieve(chargeId);
+
+      console.log(charge)
+
+      res.redirect(303, charge.receipt_url);
+    } else {
+      res.send('Payment successful, but no receipt found.');
     }
-  
-    try {
-      // Retrieve the Checkout Session
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-  
-      // Get the Payment Intent ID
-      const paymentIntentId = session.payment_intent;
-  
-      if (paymentIntentId) {
-        // Retrieve Payment Intent details
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-        console.log(paymentIntent);
-  
-        // Get the Charge ID
-        const chargeId = paymentIntent.latest_charge;
-  
-        console.log(chargeId)
-  
-        // Retrieve Charge details to get the receipt URL
-        const charge = await stripe.charges.retrieve(chargeId);
-  
-        console.log(charge)
-  
-        res.redirect(303, charge.receipt_url);
-      } else {
-        res.send('Payment successful, but no receipt found.');
-      }
-    } catch (error) {
-      res.status(500).send(`Error: ${error.message}`);
-    }
-  });
-  
-  
-  
-  app.get('/cancel', (req, res) => {
-      res.send('Cancelled');
-  });
-  
+  } catch (error) {
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+app.get('/cancel', (req, res) => {
+  res.send('Cancelled');
+});
+
 // -------------------- GENERATE OTP --------------------
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -253,7 +257,7 @@ app.post("/send-otp", async (req, res) => {
                       <p>We received a request to reset your password. Use the following One-Time Password (OTP) to proceed:</p>
                       <p style="font-size: 24px; font-weight: bold; color: #2d89ef; margin: 20px 0;">${otp}</p>
                       <p><strong>This OTP is valid for 10 minutes.</strong></p>
-                      <p>If you didn’t request a password reset, please ignore this email or contact support if you have concerns.</p>
+                      <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
                       <hr style="margin: 30px 0;">
                       <p style="font-size: 12px; color: #777;">Thank you,<br>The Support Team</p>
                   </div>
