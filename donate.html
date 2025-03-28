@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Donation Form</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .donation-form {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        button {
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #218838;
+        }
+
+        .amount-options {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .amount-option {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .amount-option.selected {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="donation-form">
+        <h2>Support Our Project</h2>
+        <p>Your donation helps us maintain and improve the Study Tracker extension.</p>
+        
+        <form id="donationForm">
+            <div class="form-group">
+                <label for="fullName">Full Name *</label>
+                <input type="text" id="fullName" name="fullName">
+                <div class="error" id="fullNameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email">
+                <div class="error" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Donation Amount *</label>
+                <div class="amount-options">
+                    <div class="amount-option" data-amount="5">$5</div>
+                    <div class="amount-option" data-amount="10">$10</div>
+                    <div class="amount-option" data-amount="20">$20</div>
+                    <div class="amount-option" data-amount="50">$50</div>
+                </div>
+                <input type="number" id="customAmount" name="amount" placeholder="Custom Amount">
+                <div class="error" id="amountError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="message">Message (Optional)</label>
+                <input type="text" id="message" name="message">
+            </div>
+
+            <button type="submit" id="checkout-button">Proceed to Payment</button>
+        </form>
+    </div>
+
+    <script src="./donate.js"></script>
+    <script>
+        // Add this to ensure the form works in extension context
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('donationForm');
+            if (form) {
+                form.action = 'http://localhost:5001/donate';
+            }
+        });
+    </script>
+</body>
+</html>

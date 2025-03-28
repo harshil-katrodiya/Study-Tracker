@@ -113,6 +113,19 @@
             background: #2575fc;
             /* Color of the thumb on hover */
         }
+        .error-message {
+                color: red;
+                font-size: 14px;
+                margin-top: 5px;
+                display: none;
+            }
+            .success-message {
+                color: green;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 10px;
+                display: none;
+            }
     </style>
 </head>
 
@@ -121,17 +134,28 @@
         <h2>Signup</h2>
         <form id="signupForm">
             <input type="text" id="firstName" placeholder="First Name">
-            <div id="firstNameError" class="error"></div>
+            <p id="firstNameError" class="error-message"></p>
+        
             <input type="text" id="lastName" placeholder="Last Name">
-            <div id="lastNameError" class="error"></div>
+            <p id="lastNameError" class="error-message"></p>
+        
             <input type="email" id="email" placeholder="Email">
-            <div id="emailError" class="error"></div>
+            <p id="emailError" class="error-message"></p>
+        
             <input type="password" id="password" placeholder="Password">
-            <div id="passwordError" class="error"></div>
-            <input type="password" id="rePassword" placeholder="Re-enter Password">
-            <div id="rePasswordError" class="error"></div>
-            <button type="submit">Signup</button>
+            <p id="passwordError" class="error-message"></p>
+        
+            <input type="password" id="confirmPassword" placeholder="Re-enter Password">
+            <p id="confirmPasswordError" class="error-message"></p>
+        
+            <button type="submit">Sign Up</button>
+        
+            <!-- Success Message -->
+            <p id="successMessage" class="success-message"></p>
         </form>
+        
+        
+        
         <a href="login.html" class="link">Already have an account? Login here</a>
     </div>
     <script src="signup.js"></script>

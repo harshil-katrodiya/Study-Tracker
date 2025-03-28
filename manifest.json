@@ -9,10 +9,12 @@
     "notifications",
     "webNavigation",
     "cookies",
-    "<all_urls>"
+    "<all_urls>",
+    "webRequest",
+    "webRequestBlocking"
   ],
   "browser_action": {
-    "default_popup": "login.html",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "images/icon16.png",
       "48": "images/icon48.png",
@@ -21,18 +23,12 @@
   },
   "background": {
     "scripts": ["background.js"],
-    "persistent": false
-  },
-
-  "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    "persistent": true
   },
   "web_accessible_resources": [
-    "signup.html",
-    "signup.js",
-    "login.html",
-    "login.js"
-  ]
+    "donate.html",
+    "donate.js",
+    "style.css"
+  ],
+  "content_security_policy": "script-src 'self' https://js.stripe.com; object-src 'self'"
 }
