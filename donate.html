@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Donation Form</title>
-    <link rel="stylesheet" href="style.css">
     <script src="https://js.stripe.com/v3/"></script>
     <style>
         body {
@@ -85,16 +84,16 @@
         <h2>Support Our Project</h2>
         <p>Your donation helps us maintain and improve the Study Tracker extension.</p>
         
-        <form id="donationForm" action="/donate" method="POST">
+        <form id="donationForm">
             <div class="form-group">
                 <label for="fullName">Full Name *</label>
-                <input type="text" id="fullName" name="fullName" required>
+                <input type="text" id="fullName" name="fullName">
                 <div class="error" id="fullNameError"></div>
             </div>
 
             <div class="form-group">
                 <label for="email">Email Address *</label>
-                <input type="email" id="email" name="email" required>
+                <input type="email" id="email" name="email">
                 <div class="error" id="emailError"></div>
             </div>
 
@@ -106,7 +105,7 @@
                     <div class="amount-option" data-amount="20">$20</div>
                     <div class="amount-option" data-amount="50">$50</div>
                 </div>
-                <input type="number" id="customAmount" name="amount" placeholder="Custom Amount" min="1" required>
+                <input type="number" id="customAmount" name="amount" placeholder="Custom Amount">
                 <div class="error" id="amountError"></div>
             </div>
 
@@ -119,7 +118,7 @@
         </form>
     </div>
 
-    <script src="donate.js"></script>
+    <script src="./donate.js"></script>
     <script>
         // Add this to ensure the form works in extension context
         document.addEventListener('DOMContentLoaded', () => {
