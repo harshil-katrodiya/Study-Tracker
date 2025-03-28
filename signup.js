@@ -12,7 +12,7 @@ document.getElementById("signupForm").addEventListener("submit", async function 
   
     const namePattern = /^[A-Za-z]{1,12}$/;
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const passwordPattern = /^(?=.[a-z])(?=.[A-Z])(?=.\d)(?=.[\W_]).{8,}$/;
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
   
     // Validation
     if (!firstName || !namePattern.test(firstName)) {
@@ -79,3 +79,4 @@ document.getElementById("signupForm").addEventListener("submit", async function 
     errorElement.innerText = "";
     errorElement.style.display = "none";
   }
+  
