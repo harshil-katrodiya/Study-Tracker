@@ -18,8 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load whitelist and add event listeners
   loadWhitelist();
   addDomainButton.addEventListener("click", addDomain);
-  domainInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') addDomain();
+  domainInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") addDomain();
   });
 
   // Initial load
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   checkSession();
 
   // Add logout button handler
-  document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+  document.getElementById("logoutBtn").addEventListener("click", handleLogout);
 
   async function loadData() {
     try {
@@ -70,7 +70,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function updateStatsDisplay(sessionData) {
-    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    const response = await browser.runtime.sendMessage({
+      type: "GET_WHITELIST",
+    });
     const whitelistedDomains = response.domains;
 
     const today = new Date().toISOString().split("T")[0];
@@ -79,8 +81,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const statsList = Object.entries(stats)
       .filter(([key]) => {
         // Show all domains if whitelist is empty, otherwise show only whitelisted domains
-        return key !== "visitedUrls" && 
-               (whitelistedDomains.length === 0 || whitelistedDomains.includes(key));
+        return (
+          key !== "visitedUrls" &&
+          (whitelistedDomains.length === 0 || whitelistedDomains.includes(key))
+        );
       })
       .map(([domain, seconds]) => {
         const minutes = Math.floor(seconds / 60);
@@ -95,7 +99,9 @@ document.addEventListener("DOMContentLoaded", () => {
   async function updateChart(sessionData) {
     if (chart) chart.destroy();
 
-    const response = await browser.runtime.sendMessage({ type: "GET_WHITELIST" });
+    const response = await browser.runtime.sendMessage({
+      type: "GET_WHITELIST",
+    });
     const whitelistedDomains = response.domains;
 
     const today = new Date().toISOString().split("T")[0];
@@ -103,8 +109,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const chartData = Object.entries(stats)
       .filter(([key]) => {
-        return key !== "visitedUrls" && 
-               (whitelistedDomains.length === 0 || whitelistedDomains.includes(key));
+        return (
+          key !== "visitedUrls" &&
+          (whitelistedDomains.length === 0 || whitelistedDomains.includes(key))
+        );
       })
       .map(([domain, seconds]) => ({
         domain,
@@ -143,23 +151,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadWhitelist() {
     try {
-      const response = await browser.runtime.sendMessage({ type: 'GET_WHITELIST' });
+      const response = await browser.runtime.sendMessage({
+        type: "GET_WHITELIST",
+      });
       displayWhitelistedDomains(response.domains);
     } catch (error) {
-      console.error('Error loading whitelist:', error);
+      console.error("Error loading whitelist:", error);
     }
   }
 
   function displayWhitelistedDomains(domains) {
-    whitelistContainer.innerHTML = domains.map(domain => `
+    whitelistContainer.innerHTML = domains
+      .map(
+        (domain) => `
       <li>
         <span>${domain}</span>
         <span class="remove-domain" data-domain="${domain}">×</span>
       </li>
-    `).join('');
+    `
+      )
+      .join("");
 
-    document.querySelectorAll('.remove-domain').forEach(button => {
-      button.addEventListener('click', removeDomain);
+    document.querySelectorAll(".remove-domain").forEach((button) => {
+      button.addEventListener("click", removeDomain);
     });
   }
 
@@ -168,88 +182,90 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!domain) return;
 
     try {
-        // Clean up domain input
-        domain = domain.replace(/^(https?:\/\/)?(www\.)?/i, '');
-        domain = domain.split('/')[0]; // Remove paths
+      // Clean up domain input
+      domain = domain.replace(/^(https?:\/\/)?(www\.)?/i, "");
+      domain = domain.split("/")[0]; // Remove paths
 
-        // Basic domain validation
-        if (!domain.includes('.') || domain.startsWith('.') || domain.endsWith('.')) {
-            alert('Please enter a valid domain (e.g., amazon.com)');
-            return;
-        }
+      // Basic domain validation
+      if (
+        !domain.includes(".") ||
+        domain.startsWith(".") ||
+        domain.endsWith(".")
+      ) {
+        alert("Please enter a valid domain (e.g., amazon.com)");
+        return;
+      }
 
-        const response = await browser.runtime.sendMessage({ type: 'GET_WHITELIST' });
-        const domains = response.domains;
+      const response = await browser.runtime.sendMessage({
+        type: "GET_WHITELIST",
+      });
+      const domains = response.domains;
 
-        // Check if domain or similar domain already exists
-        if (!domains.includes(domain)) {
-            domains.push(domain);
-            await browser.runtime.sendMessage({
-                type: 'UPDATE_WHITELIST',
-                domains
-            });
-            domainInput.value = '';
-            loadWhitelist();
-        }
+      // Check if domain or similar domain already exists
+      if (!domains.includes(domain)) {
+        domains.push(domain);
+        await browser.runtime.sendMessage({
+          type: "UPDATE_WHITELIST",
+          domains,
+        });
+        domainInput.value = "";
+        loadWhitelist();
+      }
     } catch (error) {
-        console.error('Error adding domain:', error);
-        alert('Error adding domain. Please try again.');
+      console.error("Error adding domain:", error);
+      alert("Error adding domain. Please try again.");
     }
   }
 
   async function removeDomain(e) {
     const domainToRemove = e.target.dataset.domain;
     try {
-      const response = await browser.runtime.sendMessage({ type: 'GET_WHITELIST' });
-      const domains = response.domains.filter(d => d !== domainToRemove);
-      
+      const response = await browser.runtime.sendMessage({
+        type: "GET_WHITELIST",
+      });
+      const domains = response.domains.filter((d) => d !== domainToRemove);
+
       await browser.runtime.sendMessage({
-        type: 'UPDATE_WHITELIST',
-        domains
+        type: "UPDATE_WHITELIST",
+        domains,
       });
       loadWhitelist();
     } catch (error) {
-      console.error('Error removing domain:', error);
+      console.error("Error removing domain:", error);
     }
   }
 
   function checkSession() {
-    const session = JSON.parse(localStorage.getItem('session'));
-    if (!session || !session.token || isSessionExpired(session)) {
-      // Redirect to login page if no valid session
-      window.location.href = 'login.html';
-      return;
-    }
+    const session = JSON.parse(localStorage.getItem("session"));
+    if (!session || !session.token) return;
 
-    // Session is valid, update last activity
-    updateLastActivity();
-  }
-
-  function isSessionExpired(session) {
-    // Session expires after 24 hours of inactivity
-    const expirationTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const expirationTime = 24 * 60 * 60 * 1000; // 24 hours
     const now = new Date().getTime();
-    return now - session.lastActivity > expirationTime;
+
+    if (now - session.lastActivity > expirationTime) {
+      localStorage.removeItem("session");
+      localStorage.removeItem("user");
+    }
   }
 
   function updateLastActivity() {
-    const session = JSON.parse(localStorage.getItem('session'));
+    const session = JSON.parse(localStorage.getItem("session"));
     if (session) {
       session.lastActivity = new Date().getTime();
-      localStorage.setItem('session', JSON.stringify(session));
+      localStorage.setItem("session", JSON.stringify(session));
     }
   }
 
   function handleLogout() {
     // Clear session data
-    localStorage.removeItem('session');
-    localStorage.removeItem('user');
-    
+    localStorage.removeItem("session");
+    localStorage.removeItem("user");
+
     // Redirect to login page
-    window.location.href = 'login.html';
+    window.location.href = "login.html";
   }
 
   // Update last activity when user interacts with the popup
-  document.addEventListener('click', updateLastActivity);
-  document.addEventListener('keypress', updateLastActivity);
+  document.addEventListener("click", updateLastActivity);
+  document.addEventListener("keypress", updateLastActivity);
 });
