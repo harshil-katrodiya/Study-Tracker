@@ -26,11 +26,12 @@ let studySessionData = {
   startTime: null,
   dailyStats: {},
   activeTimers: {},
-  lastUpdate: null, // Add this to track last update time
+  lastUpdate: null
 };
 
 // Add after studySessionData declaration
 let whitelistedDomains = [];
+let totalBlockedAttempts = 0; // Track total attempts across all blocked sites
 
 // Common resource domains for popular websites
 const resourceDomains = {
@@ -215,16 +216,12 @@ function trackTime(domain) {
     const today = new Date().toISOString().split("T")[0];
 
     // Initialize daily stats if needed
-    studySessionData.dailyStats[today] =
-      studySessionData.dailyStats[today] || {};
-    studySessionData.dailyStats[today][domain] =
-      studySessionData.dailyStats[today][domain] || 0;
+    studySessionData.dailyStats[today] = studySessionData.dailyStats[today] || {};
+    studySessionData.dailyStats[today][domain] = studySessionData.dailyStats[today][domain] || 0;
 
     if (studySessionData.lastUpdate) {
       // Calculate elapsed time since last update
-      const elapsedSeconds = Math.floor(
-        (now - studySessionData.lastUpdate) / 1000
-      );
+      const elapsedSeconds = Math.floor((now - studySessionData.lastUpdate) / 1000);
       if (elapsedSeconds > 0) {
         studySessionData.dailyStats[today][domain] += elapsedSeconds;
       }
@@ -330,6 +327,27 @@ browserAPI.webRequest.onBeforeRequest.addListener(
       const url = new URL(details.url);
       const domain = url.hostname.replace(/^www\./, "");
 
+      // Only count attempts for main page loads
+      if (!shouldAllowDomain(domain) && details.type === "main_frame") {
+        totalBlockedAttempts++;
+        console.log("Blocked attempt count:", totalBlockedAttempts);
+        
+        // If user has attempted to visit any blocked site 3 or more times
+        if (totalBlockedAttempts >= 3) {
+          console.log("Showing notification for multiple blocked attempts");
+          // Show distraction alert notification
+          browserAPI.notifications.create({
+            type: 'basic',
+            iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
+            title: 'Study Tracker',
+            message: 'Stay focused! Keep up the good work!'
+          });
+          
+          // Reset the counter
+          totalBlockedAttempts = 0;
+        }
+      }
+
       return { cancel: !shouldAllowDomain(domain) };
     } catch (error) {
       console.error("Error processing URL:", error);
@@ -338,21 +356,7 @@ browserAPI.webRequest.onBeforeRequest.addListener(
   },
   {
     urls: ["<all_urls>"],
-    types: [
-      "main_frame",
-      "sub_frame",
-      "stylesheet",
-      "script",
-      "image",
-      "font",
-      "object",
-      "xmlhttprequest",
-      "ping",
-      "csp_report",
-      "media",
-      "websocket",
-      "other",
-    ],
+    types: ["main_frame"], // Only listen for main page loads
   },
   ["blocking"]
 );
@@ -387,22 +391,6 @@ function checkSession() {
     localStorage.removeItem("user");
   }
 }
-
-// Add periodic cleanup of old data
-function cleanupOldData() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  for (const date in studySessionData.dailyStats) {
-    if (new Date(date) < thirtyDaysAgo) {
-      delete studySessionData.dailyStats[date];
-    }
-  }
-  saveToStorage();
-}
-
-// Run cleanup daily
-setInterval(cleanupOldData, 24 * 60 * 60 * 1000);
 
 // Add visibility change handler
 document.addEventListener("visibilitychange", () => {
