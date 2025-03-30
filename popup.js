@@ -96,16 +96,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    const storedSeconds =
-      sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
+    const storedSeconds = sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
 
     timerInterval = setInterval(() => {
-      const liveSeconds = Math.floor(
-        (Date.now() - sessionData.startTime) / 1000
-      );
-      elements.timer.textContent = formatTime(
-        (storedSeconds + liveSeconds) * 1000
-      );
+      const liveSeconds = Math.floor((Date.now() - sessionData.startTime) / 1000);
+      const totalSeconds = storedSeconds + liveSeconds;
+      elements.timer.textContent = formatTime(totalSeconds * 1000) + 
+        (sessionData.isPaused ? " (Paused)" : "");
     }, 1000);
 
     elements.domain.textContent = sessionData.currentDomain;
