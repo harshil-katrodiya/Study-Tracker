@@ -359,16 +359,16 @@ browserAPI.webRequest.onBeforeRequest.addListener(
 
 // Handle messages from popup
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "GET_WHITELIST") {
-    sendResponse({ domains: whitelistedDomains });
-  } else if (request.type === "UPDATE_WHITELIST") {
-    whitelistedDomains = request.domains;
-    browserAPI.storage.local.set({ whitelistedDomains });
-    sendResponse({ success: true });
-  } else if (request.action === "openDonate") {
-    browserAPI.tabs.create({ url: browserAPI.runtime.getURL("donate.html") });
-  }
-  return true;
+    if (request.type === "GET_WHITELIST") {
+        sendResponse({ domains: whitelistedDomains });
+    } else if (request.type === "UPDATE_WHITELIST") {
+        whitelistedDomains = request.domains;
+        browserAPI.storage.local.set({ whitelistedDomains });
+        sendResponse({ success: true });
+    } else if (request.action === "openDonate") {
+        browserAPI.tabs.create({ url: browserAPI.runtime.getURL("donate.html") });
+    }
+    return true;
 });
 
 // Check session status periodically
