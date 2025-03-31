@@ -1,5 +1,7 @@
 require("dotenv").config();
-const stripe = require('stripe')('sk_test_51R4TV5CtaNmtadhYmdeRteYeoN4geSwEynfxN3qnl6FgKXRKVFW9AZ15uBA1VLQnduj0PQ1VUIoOQBGG5tvjyWih002HgRQOfl');
+const stripe = require("stripe")(
+  "sk_test_51R4TV5CtaNmtadhYmdeRteYeoN4geSwEynfxN3qnl6FgKXRKVFW9AZ15uBA1VLQnduj0PQ1VUIoOQBGG5tvjyWih002HgRQOfl"
+);
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -14,9 +16,11 @@ const YOUR_DOMAIN = `http://localhost:${PORT}`;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+app.use(express.static(__dirname));
 
 // -------------------- DATABASE --------------------
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB Connection Error:", err));
 
@@ -30,12 +34,17 @@ const UserSchema = new mongoose.Schema({
 
 const UserModel = mongoose.model("User", UserSchema);
 
-// ✅ STUDY DATA SCHEMA
+//  STUDY DATA SCHEMA
 const StudySchema = new mongoose.Schema({
-  userId: mongoose.Schema.Types.ObjectId,
-  studyData: String,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  site: { type: String, required: true },
+  timeSpentInSeconds: { type: Number, required: true },
+  timeSpentInMinutes: { type: Number, required: true }, // New column for minutes
   timestamp: { type: Date, default: Date.now },
 });
+// Ensure virtuals are included in JSON and Object outputs
+StudySchema.set("toJSON", { virtuals: true });
+StudySchema.set("toObject", { virtuals: true });
 
 const StudyModel = mongoose.model("Study", StudySchema);
 
@@ -45,7 +54,9 @@ app.post("/signup", async (req, res) => {
     const { firstName, lastName, email, password } = req.body;
 
     // Check if user already exists
-    const existingUser = await UserModel.findOne({ email });
+    const existingUser = await UserModel.findOne({
+      email: email.toLowerCase(),
+    });
     if (existingUser)
       return res.status(400).json({ error: "User already exists" });
 
@@ -55,12 +66,14 @@ app.post("/signup", async (req, res) => {
     const newUser = new UserModel({
       firstName,
       lastName,
-      email,
+      email: email.toLowerCase(), // store email in lowercase
       password: hashedPassword,
     });
     await newUser.save();
+
     res.status(201).json({ message: "User registered successfully!" });
   } catch (error) {
+    console.error("Signup error:", error);
     res.status(500).json({ error: "Signup failed" });
   }
 });
@@ -74,7 +87,7 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Missing email or password" });
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       console.log("User not found in DB.");
@@ -93,7 +106,7 @@ app.post("/login", async (req, res) => {
     });
 
     console.log("Login successful for:", email);
-    res.json({ message: "Login successful!", token });
+    res.json({ message: "Login successful!", token, userId: user._id });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Server error" });
@@ -114,13 +127,28 @@ const verifyToken = (req, res, next) => {
 
 app.post("/saveStudyData", verifyToken, async (req, res) => {
   try {
+    console.log("Received study data:", req.body);
+    let { site, timeSpentInSeconds } = req.body;
+
+    // Coerce timeSpentInSeconds to a number (in case it is sent as a string)
+    timeSpentInSeconds = Number(timeSpentInSeconds);
+    if (!site || isNaN(timeSpentInSeconds)) {
+      return res
+        .status(400)
+        .json({ error: "Site and timeSpentInSeconds are required" });
+    }
+    const timeSpentInMinutes = Math.round(timeSpentInSeconds / 60);
+
     const newData = new StudyModel({
       userId: req.userId,
-      studyData: req.body.studyData,
+      site,
+      timeSpentInSeconds,
+      timeSpentInMinutes,
     });
     await newData.save();
     res.json({ message: "Study data saved successfully!" });
   } catch (error) {
+    console.error("Error saving study data:", error);
     res.status(500).json({ error: "Error saving data" });
   }
 });
@@ -137,115 +165,123 @@ app.get("/getStudyData", verifyToken, async (req, res) => {
 });
 
 // get donate page returning html file
-app.get('/donate', (req, res) => {
-  res.sendFile(__dirname + '/donate.html');
+app.get("/donate", (req, res) => {
+  res.sendFile(__dirname + "/donate.html");
 });
 
-app.post('/donate', async (req, res) => {
-  // let amount = 20;
-  const { amount, email } = req.body;
+app.post("/donate", async (req, res) => {
+  try {
+    const { amount, email } = req.body;
+    console.log("Received donation request:", req.body); // Debug log
 
-  const session = await stripe.checkout.sessions.create({
-    line_items: [
-      {
-        price_data: {
-          currency: "cad",
-          product_data: {
-            name: "Donation",
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "Donation",
+            },
+            unit_amount: Math.round(amount * 100), // Convert to cents
           },
-          unit_amount: amount * 100, // Amount in cents (100 = $1.00)
+          quantity: 1,
         },
-        quantity: 1,
-      },
-    ],
-    mode: 'payment',
-    success_url: `${YOUR_DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${YOUR_DOMAIN}/cancel`,
-    customer_email: email,
-  });
+      ],
+      mode: "payment",
+      success_url: `${YOUR_DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${YOUR_DOMAIN}/cancel`,
+      customer_email: email,
+    });
 
-  res.redirect(303, session.url);
-  });
+    // Send JSON response instead of redirect
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error("Error creating checkout session:", error);
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
 
-  app.get('/success', async (req, res) => {
-    const sessionId = req.query.session_id; // Get session_id from URL
-  
-    if (!sessionId) {
-      return res.status(400).send('Session ID is required.');
+app.get("/success", async (req, res) => {
+  const sessionId = req.query.session_id; // Get session_id from URL
+
+  if (!sessionId) {
+    return res.status(400).send("Session ID is required.");
+  }
+
+  try {
+    // Retrieve the Checkout Session
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    // Get the Payment Intent ID
+    const paymentIntentId = session.payment_intent;
+
+    if (paymentIntentId) {
+      // Retrieve Payment Intent details
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        paymentIntentId
+      );
+      console.log(paymentIntent);
+
+      // Get the Charge ID
+      const chargeId = paymentIntent.latest_charge;
+
+      console.log(chargeId);
+
+      // Retrieve Charge details to get the receipt URL
+      const charge = await stripe.charges.retrieve(chargeId);
+
+      console.log(charge);
+
+      res.redirect(303, charge.receipt_url);
+    } else {
+      res.send("Payment successful, but no receipt found.");
     }
-  
-    try {
-      // Retrieve the Checkout Session
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-  
-      // Get the Payment Intent ID
-      const paymentIntentId = session.payment_intent;
-  
-      if (paymentIntentId) {
-        // Retrieve Payment Intent details
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-        console.log(paymentIntent);
-  
-        // Get the Charge ID
-        const chargeId = paymentIntent.latest_charge;
-  
-        console.log(chargeId)
-  
-        // Retrieve Charge details to get the receipt URL
-        const charge = await stripe.charges.retrieve(chargeId);
-  
-        console.log(charge)
-  
-        res.redirect(303, charge.receipt_url);
-      } else {
-        res.send('Payment successful, but no receipt found.');
-      }
-    } catch (error) {
-      res.status(500).send(`Error: ${error.message}`);
-    }
-  });
-  
-  
-  
-  app.get('/cancel', (req, res) => {
-      res.send('Cancelled');
-  });
-  
+  } catch (error) {
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+app.get("/cancel", (req, res) => {
+  res.send("Cancelled");
+});
+
 // -------------------- GENERATE OTP --------------------
-const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+const generateOTP = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 // -------------------- Temporary Storage for OTPs --------------------
 const otpStorage = {};
 
 // -------------------- SEND OTP --------------------
 app.post("/send-otp", async (req, res) => {
-    console.log("Received OTP request:", req.body);
-    const { email } = req.body;
+  console.log("Received OTP request:", req.body);
+  const { email } = req.body;
 
-    try {
-        const user = await UserModel.findOne({ email });
-        if (!user) {
-            return res.status(404).json({ message: "Email not registered." });
-        }
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Email not registered." });
+    }
 
-        const otp = generateOTP();
-        console.log(`Generated OTP for ${email}: ${otp}`);
+    const otp = generateOTP();
+    console.log(`Generated OTP for ${email}: ${otp}`);
 
-        otpStorage[email] = otp; // Store OTP temporarily
+    otpStorage[email] = otp; // Store OTP temporarily
 
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: "🔐 Password Reset Request - Your OTP Inside",
-          html: `
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "🔐 Password Reset Request - Your OTP Inside",
+      html: `
               <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
                   <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                       <h2 style="color: #2d89ef;">Password Reset Request</h2>
@@ -253,22 +289,21 @@ app.post("/send-otp", async (req, res) => {
                       <p>We received a request to reset your password. Use the following One-Time Password (OTP) to proceed:</p>
                       <p style="font-size: 24px; font-weight: bold; color: #2d89ef; margin: 20px 0;">${otp}</p>
                       <p><strong>This OTP is valid for 10 minutes.</strong></p>
-                      <p>If you didn’t request a password reset, please ignore this email or contact support if you have concerns.</p>
+                      <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
                       <hr style="margin: 30px 0;">
                       <p style="font-size: 12px; color: #777;">Thank you,<br>The Support Team</p>
                   </div>
               </div>
-          `
-      };
-      
-        await transporter.sendMail(mailOptions);
-        console.log("OTP sent successfully to:", email);
-        res.json({ message: "OTP sent to email." });
+          `,
+    };
 
-    } catch (error) {
-        console.error("Error sending OTP:", error);
-        res.status(500).json({ message: "Failed to send OTP." });
-    }
+    await transporter.sendMail(mailOptions);
+    console.log("OTP sent successfully to:", email);
+    res.json({ message: "OTP sent to email." });
+  } catch (error) {
+    console.error("Error sending OTP:", error);
+    res.status(500).json({ message: "Failed to send OTP." });
+  }
 });
 
 // -------------------- OTP VERIFICATION --------------------
@@ -279,12 +314,12 @@ app.post("/verify-otp", async (req, res) => {
   console.log("Stored OTP for this email:", otpStorage[email]); // Debugging line
 
   if (otpStorage[email] && otpStorage[email] === otp) {
-      console.log("✅ OTP Matched!");
-      delete otpStorage[email]; // Remove OTP after successful verification
-      res.json({ message: "OTP verified successfully!" });
+    console.log("✅ OTP Matched!");
+    delete otpStorage[email]; // Remove OTP after successful verification
+    res.json({ message: "OTP verified successfully!" });
   } else {
-      console.log("❌ Invalid OTP!");
-      res.status(400).json({ message: "Invalid or expired OTP." });
+    console.log("❌ Invalid OTP!");
+    res.status(400).json({ message: "Invalid or expired OTP." });
   }
 });
 
@@ -313,7 +348,6 @@ app.post("/reset-password", async (req, res) => {
     res.status(500).json({ message: "Failed to reset password." });
   }
 });
-
 
 // -------------------- START SERVER --------------------
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
