@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const browser = window.browser || window.chrome;
   const elements = {
     timer: document.getElementById("startTime"),
@@ -8,6 +8,13 @@ document.addEventListener("DOMContentLoaded", () => {
     themeToggle: document.getElementById("themeToggle"),
     themeIcon: document.getElementById("themeIcon")
   };
+
+  // Check authentication status first
+  const isLoggedIn = await checkAuthStatus();
+  if (!isLoggedIn) {
+    window.location.href = 'login.html';
+    return;
+  }
 
   let chart = null;
   let timerInterval = null;
@@ -34,9 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
   loadData();
   setInterval(loadData, 60000);
 
-  // Check session status
-  checkSession();
-
   // Add logout button handler
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
 
@@ -53,6 +57,82 @@ document.addEventListener("DOMContentLoaded", () => {
     attributes: true,
     attributeFilter: ["data-theme"],
   });
+
+  // Authentication functions
+  async function checkAuthStatus() {
+    try {
+      // Check browser storage first
+      const storageData = await browser.storage.local.get(['isLoggedIn', 'lastActivity']);
+      
+      // Check localStorage as backup
+      const localSession = JSON.parse(localStorage.getItem('session'));
+      
+      if (storageData.isLoggedIn && storageData.lastActivity) {
+        // Check if session is expired (24 hours)
+        const now = new Date().getTime();
+        const lastActivity = storageData.lastActivity;
+        const sessionExpiry = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        
+        if (now - lastActivity < sessionExpiry) {
+          return true;
+        } else {
+          // Session expired, clear storage
+          await clearSession();
+          return false;
+        }
+      } else if (localSession && localSession.isLoggedIn && localSession.lastActivity) {
+        // Restore session from localStorage if browser storage is empty
+        await browser.storage.local.set(localSession);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+      return false;
+    }
+  }
+
+  async function clearSession() {
+    try {
+      // Clear browser storage
+      await browser.storage.local.clear();
+      
+      // Clear localStorage
+      localStorage.removeItem('session');
+      
+      // Redirect to login page
+      window.location.href = 'login.html';
+    } catch (error) {
+      console.error('Error clearing session:', error);
+    }
+  }
+
+  async function updateLastActivity() {
+    try {
+      const now = new Date().getTime();
+      
+      // Update browser storage
+      await browser.storage.local.set({ lastActivity: now });
+      
+      // Update localStorage
+      const session = JSON.parse(localStorage.getItem('session'));
+      if (session) {
+        session.lastActivity = now;
+        localStorage.setItem('session', JSON.stringify(session));
+      }
+    } catch (error) {
+      console.error('Error updating last activity:', error);
+    }
+  }
+
+  function handleLogout() {
+    clearSession();
+  }
+
+  // Update last activity on user interaction
+  document.addEventListener("click", updateLastActivity);
+  document.addEventListener("keypress", updateLastActivity);
 
   function initializeTheme() {
     // Get saved theme from storage
@@ -318,38 +398,4 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error removing domain:", error);
     }
   }
-
-  function checkSession() {
-    const session = JSON.parse(localStorage.getItem("session"));
-    if (!session || !session.token) return;
-
-    const expirationTime = 24 * 60 * 60 * 1000; // 24 hours
-    const now = new Date().getTime();
-
-    if (now - session.lastActivity > expirationTime) {
-      localStorage.removeItem("session");
-      localStorage.removeItem("user");
-    }
-  }
-
-  function updateLastActivity() {
-    const session = JSON.parse(localStorage.getItem("session"));
-    if (session) {
-      session.lastActivity = new Date().getTime();
-      localStorage.setItem("session", JSON.stringify(session));
-    }
-  }
-
-  function handleLogout() {
-    // Clear session data
-    localStorage.removeItem("session");
-    localStorage.removeItem("user");
-
-    // Redirect to login page
-    window.location.href = "login.html";
-  }
-
-  // Update last activity when user interacts with the popup
-  document.addEventListener("click", updateLastActivity);
-  document.addEventListener("keypress", updateLastActivity);
 });

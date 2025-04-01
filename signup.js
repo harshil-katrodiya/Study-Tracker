@@ -75,39 +75,43 @@ document
       hideError("confirmPasswordError");
     }
 
-    // If everything is valid, show success message
+    // Only proceed with API call if validation passes
     if (valid) {
-      successMessage.innerText = "Signup successful!";
-      successMessage.style.display = "block";
-      successMessage.style.color = "green";
+      try {
+        const response = await fetch("http://localhost:5001/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firstName, lastName, email, password }),
+        });
 
-      // Simulate a short delay before submitting
-      setTimeout(() => {
-        this.submit(); // Submit the form
-      }, 2000);
-    }
-
-    const response = await fetch("http://localhost:5001/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstName, lastName, email, password }),
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      alert("Signup successful!");
-      window.location.href = "login.html";
-    } else {
-      alert(data.error);
+        const data = await response.json();
+        
+        if (response.ok) {
+          successMessage.innerText = "Signup successful! Redirecting to login...";
+          successMessage.style.display = "block";
+          successMessage.style.color = "green";
+          
+          // Redirect after a short delay
+          setTimeout(() => {
+            window.location.href = "login.html";
+          }, 2000);
+        } else {
+          // Show server error in the UI
+          showError("emailError", data.error || "Signup failed. Please try again.");
+        }
+      } catch (error) {
+        console.error("Signup error:", error);
+        showError("emailError", "Network error. Please try again.");
+      }
     }
   });
+
 function showError(id, message) {
   const errorElement = document.getElementById(id);
   errorElement.innerText = message;
   errorElement.style.display = "block";
 }
 
-// Function to hide error messages
 function hideError(id) {
   const errorElement = document.getElementById(id);
   errorElement.innerText = "";
