@@ -38,10 +38,20 @@ const UserModel = mongoose.model("User", UserSchema);
 const StudySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   site: { type: String, required: true },
-  timeSpentInSeconds: { type: Number, required: true },
-  timeSpentInMinutes: { type: Number, required: true }, // New column for minutes
+  timeSpentInSeconds: { 
+    type: Number, 
+    required: true,
+    min: 0,
+    max: 86400 // Maximum 24 hours per session
+  },
   timestamp: { type: Date, default: Date.now },
 });
+
+// Add virtual for minutes
+StudySchema.virtual('timeSpentInMinutes').get(function() {
+  return Math.round(this.timeSpentInSeconds / 60);
+});
+
 // Ensure virtuals are included in JSON and Object outputs
 StudySchema.set("toJSON", { virtuals: true });
 StudySchema.set("toObject", { virtuals: true });
@@ -101,12 +111,21 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    // Generate access token (1 hour) and refresh token (7 days)
+    const accessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
+    });
+    const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
     });
 
     console.log("Login successful for:", email);
-    res.json({ message: "Login successful!", token, userId: user._id });
+    res.json({ 
+      message: "Login successful!", 
+      accessToken, 
+      refreshToken, 
+      userId: user._id 
+    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Server error" });
@@ -346,6 +365,32 @@ app.post("/reset-password", async (req, res) => {
   } catch (error) {
     console.error("Error resetting password:", error);
     res.status(500).json({ message: "Failed to reset password." });
+  }
+});
+
+// Add refresh token endpoint
+app.post("/refresh-token", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ error: "Refresh token is required" });
+    }
+
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    const user = await UserModel.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const newAccessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.json({ accessToken: newAccessToken });
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    res.status(401).json({ error: "Invalid refresh token" });
   }
 });
 
