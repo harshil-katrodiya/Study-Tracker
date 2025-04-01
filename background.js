@@ -60,6 +60,31 @@ const resourceDomains = {
   // Add more websites as needed
 };
 
+// Update the excludedDomains array to remove localhost
+const excludedDomains = [
+  "stripe.com",
+  "checkout.stripe.com",
+  "pay.stripe.com",
+  "billing.stripe.com",
+  "dashboard.stripe.com",
+  "api.stripe.com",
+  "js.stripe.com",
+  "hooks.stripe.com",
+  "connect.stripe.com",
+  "files.stripe.com",
+  "m.stripe.com",
+  "q.stripe.com",
+  "r.stripe.com",
+  "s.stripe.com",
+  "t.stripe.com",
+  "u.stripe.com",
+  "v.stripe.com",
+  "w.stripe.com",
+  "x.stripe.com",
+  "y.stripe.com",
+  "z.stripe.com"
+];
+
 // Initialize data from storage
 browserAPI.storage.local
   .get(["whitelistedDomains", "studySessionData"])
@@ -110,6 +135,51 @@ function handleTabRemoval() {
   saveCurrentStats();
 }
 
+// Update isStripeUrl function to remove localhost check
+function isStripeUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname.replace("www.", "");
+    const path = urlObj.pathname.toLowerCase();
+
+    // Check if domain is Stripe-related
+    if (excludedDomains.some(excludedDomain => 
+      domain === excludedDomain || domain.endsWith("." + excludedDomain))) {
+      return true;
+    }
+
+    // Check for Stripe-related paths
+    const stripePaths = [
+      "/checkout",
+      "/payment",
+      "/pay",
+      "/billing",
+      "/subscription",
+      "/receipt",
+      "/invoice",
+      "/payment-methods",
+      "/setup",
+      "/confirm",
+      "/success",
+      "/cancel"
+    ];
+
+    return stripePaths.some(stripePath => path.startsWith(stripePath));
+  } catch {
+    return false;
+  }
+}
+
+// Add function to check if URL is donation page
+function isDonationPage(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.pathname === "/donate";
+  } catch {
+    return false;
+  }
+}
+
 // Handle tab change - updates the current domain and initializes tracking
 async function handleTabChange(tab) {
   if (!tab?.url) return;
@@ -123,6 +193,24 @@ async function handleTabChange(tab) {
     clearInterval(
       studySessionData.activeTimers[studySessionData.currentDomain]
     );
+  }
+
+  // Check if URL is donation page
+  if (isDonationPage(tab.url)) {
+    studySessionData.currentDomain = null;
+    studySessionData.startTime = null;
+    studySessionData.lastUpdate = null;
+    saveToStorage();
+    return;
+  }
+
+  // Check if URL is Stripe-related
+  if (isStripeUrl(tab.url)) {
+    studySessionData.currentDomain = null;
+    studySessionData.startTime = null;
+    studySessionData.lastUpdate = null;
+    saveToStorage();
+    return;
   }
 
   // Check if new domain is whitelisted
@@ -151,10 +239,11 @@ async function handleTabChange(tab) {
   saveToStorage();
 }
 
-browser.storage.local.get("authToken").then(async (result) => {
-  const token = result.authToken;
+// Update the token check
+browser.storage.local.get("accessToken").then(async (result) => {
+  const token = result.accessToken;
   if (!token) {
-    console.log("No auth token found, skipping sending study data.");
+    console.log("No access token found, skipping sending study data.");
     return;
   }
 });
@@ -164,30 +253,66 @@ setInterval(sendStudyData, 1 * 60 * 1000);
 // Also send study data on beforeunload event
 window.addEventListener("beforeunload", sendStudyData);
 
+// Add token refresh function
+async function refreshAccessToken() {
+  try {
+    const result = await browser.storage.local.get(["refreshToken"]);
+    const refreshToken = result.refreshToken;
+
+    if (!refreshToken) {
+      console.log("No refresh token found");
+      return false;
+    }
+
+    const response = await fetch("http://localhost:5001/refresh-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      await browser.storage.local.set({ accessToken: data.accessToken });
+      return true;
+    } else {
+      console.log("Failed to refresh token");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    return false;
+  }
+}
+
+// Update sendStudyData function to handle token refresh
 async function sendStudyData() {
-  console.log("Sending study data");
-  browser.storage.local.get(["authToken", "userId"]).then(async (result) => {
-    const token = result.authToken;
-    const userId = result.userId; // Not used in payload since verifyToken sets req.userId
-    if (!token) {
-      console.log("No auth token found, skipping sending study data.");
-      return;
-    }
-    const today = new Date().toISOString().split("T")[0];
-    const timeSpentInSeconds =
-      studySessionData.dailyStats[today]?.[studySessionData.currentDomain];
-    // If timeSpentInSeconds is undefined, then there is nothing to send.
-    if (!studySessionData.currentDomain || timeSpentInSeconds === undefined) {
-      console.log("No study data available to send.");
-      return;
-    }
-    const payload = {
-      site: studySessionData.currentDomain,
-      timeSpentInSeconds,
-    };
-    console.log("Sending study data with payload:", payload);
+  const maxRetries = 3;
+  let retryCount = 0;
+
+  while (retryCount < maxRetries) {
     try {
-      const response = await fetch("http://localhost:5001/saveStudyData", {
+      const result = await browser.storage.local.get(["accessToken", "userId"]);
+      let token = result.accessToken;
+      
+      if (!token) {
+        console.log("No access token found, skipping sending study data.");
+        return;
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const timeSpentInSeconds = studySessionData.dailyStats[today]?.[studySessionData.currentDomain];
+
+      if (!studySessionData.currentDomain || timeSpentInSeconds === undefined) {
+        console.log("No study data available to send.");
+        return;
+      }
+
+      const payload = {
+        site: studySessionData.currentDomain,
+        timeSpentInSeconds,
+      };
+
+      let response = await fetch("http://localhost:5001/saveStudyData", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -195,12 +320,43 @@ async function sendStudyData() {
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      console.log("Response from server:", data);
+
+      // If token is expired, try to refresh it
+      if (response.status === 401) {
+        console.log("Token expired, attempting to refresh...");
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          // Get the new token and retry the request
+          const newResult = await browser.storage.local.get(["accessToken"]);
+          token = newResult.accessToken;
+          response = await fetch("http://localhost:5001/saveStudyData", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          console.log("Failed to refresh token, user needs to login again");
+          return;
+        }
+      }
+
+      if (response.ok) {
+        console.log("Study data sent successfully");
+        return;
+      }
+
+      throw new Error(`Failed to send data: ${response.statusText}`);
     } catch (error) {
-      console.error("Error sending study data:", error);
+      console.error(`Attempt ${retryCount + 1} failed:`, error);
+      retryCount++;
+      if (retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 5000 * retryCount)); // Exponential backoff
+      }
     }
-  });
+  }
 }
 
 // ========================== TIME TRACKING LOGIC ========================== //
@@ -210,6 +366,9 @@ function trackTime(domain) {
   if (studySessionData.activeTimers[domain]) {
     clearInterval(studySessionData.activeTimers[domain]);
   }
+
+  // Update lastUpdate immediately
+  studySessionData.lastUpdate = Date.now();
 
   studySessionData.activeTimers[domain] = setInterval(() => {
     const now = Date.now();
@@ -229,7 +388,7 @@ function trackTime(domain) {
 
     studySessionData.lastUpdate = now;
     saveToStorage();
-  }, 1000);
+  }, 5000); // Changed to 5 seconds for better performance
 }
 
 // Save current session time to the daily stats
@@ -244,18 +403,20 @@ function saveCurrentStats() {
 
   if (elapsedSeconds > 0) {
     // Initialize if needed
-    studySessionData.dailyStats[today] =
-      studySessionData.dailyStats[today] || {};
-    studySessionData.dailyStats[today][studySessionData.currentDomain] =
+    studySessionData.dailyStats[today] = studySessionData.dailyStats[today] || {};
+    studySessionData.dailyStats[today][studySessionData.currentDomain] = 
       studySessionData.dailyStats[today][studySessionData.currentDomain] || 0;
 
-    // Add elapsed time
-    studySessionData.dailyStats[today][studySessionData.currentDomain] +=
-      elapsedSeconds;
+    // Add elapsed time to daily stats
+    studySessionData.dailyStats[today][studySessionData.currentDomain] += elapsedSeconds;
   }
 
-  studySessionData.startTime = now;
-  studySessionData.lastUpdate = now;
+  // Clear the timer for the current domain
+  if (studySessionData.activeTimers[studySessionData.currentDomain]) {
+    clearInterval(studySessionData.activeTimers[studySessionData.currentDomain]);
+    delete studySessionData.activeTimers[studySessionData.currentDomain];
+  }
+
   saveToStorage();
 }
 
@@ -279,10 +440,16 @@ function saveToStorage() {
   }
 }
 
-// Check if a domain should be allowed
+// Update shouldAllowDomain function to remove localhost check
 function shouldAllowDomain(domain) {
   // If whitelist is empty, allow all
   if (whitelistedDomains.length === 0) return true;
+
+  // Check if domain is in excluded domains
+  if (excludedDomains.some(excludedDomain => 
+    domain === excludedDomain || domain.endsWith("." + excludedDomain))) {
+    return false;
+  }
 
   // Direct match in whitelist
   if (whitelistedDomains.includes(domain)) return true;

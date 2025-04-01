@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Study Habit Tracker</title>
     <script src="chart.js"></script>
@@ -172,21 +171,6 @@
             margin: -20px -20px 20px -20px;
         }
 
-        .logout-button {
-            padding: 8px 16px;
-            background-color: var(--error-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .logout-button:hover {
-            background-color: var(--error-color);
-            opacity: 0.9;
-        }
-
         .header-buttons {
             display: flex;
             gap: 10px;
@@ -238,38 +222,24 @@
             display: inline-block;
             font-size: 24px;
         }
+
+        .logout-button {
+            padding: 8px 16px;
+            background-color: var(--error-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .logout-button:hover {
+            background-color: var(--error-color);
+            opacity: 0.9;
+        }
     </style>
 </head>
-
 <body>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check if user is logged in
-            const session = JSON.parse(localStorage.getItem('session'));
-            if (!session || !session.token || isSessionExpired(session)) {
-                window.location.href = 'login.html';
-                return;
-            }
-            
-            // Update last activity
-            updateLastActivity();
-        });
-
-        function isSessionExpired(session) {
-            const expirationTime = 24 * 60 * 60 * 1000; // 24 hours
-            const now = new Date().getTime();
-            return now - session.lastActivity > expirationTime;
-        }
-
-        function updateLastActivity() {
-            const session = JSON.parse(localStorage.getItem('session'));
-            if (session) {
-                session.lastActivity = new Date().getTime();
-                localStorage.setItem('session', JSON.stringify(session));
-            }
-        }
-    </script>
-
     <div class="header">
         <h2>Study Habit Tracker</h2>
         <div class="header-buttons">
@@ -317,16 +287,6 @@
     <script src="lib/chart.js"></script>
 
     <script>
-        // Add this to handle logout
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            // Clear session data
-            localStorage.removeItem('session');
-            localStorage.removeItem('user');
-            
-            // Redirect to login page
-            window.location.href = 'login.html';
-        });
-
         // Updated donate button handler for Firefox
         document.addEventListener('DOMContentLoaded', function() {
             const donateBtn = document.getElementById('donateBtn');
@@ -343,5 +303,4 @@
         });
     </script>
 </body>
-
 </html>

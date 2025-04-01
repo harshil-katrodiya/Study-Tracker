@@ -16,15 +16,27 @@ document
       });
       const data = await response.json();
       if (response.ok) {
+        // Store session data in localStorage
+        const sessionData = {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          userId: data.userId,
+          lastActivity: new Date().getTime(),
+          isLoggedIn: true
+        };
+        localStorage.setItem('session', JSON.stringify(sessionData));
+        
+        // Store in browser extension storage
         const browserAPI = window.browser || window.chrome;
         browserAPI.storage.local.set(
-          { authToken: data.token, userId: data.userId },
+          { 
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            userId: data.userId,
+            isLoggedIn: true,
+            lastActivity: new Date().getTime()
+          },
           () => {
-            console.log(
-              "Auth token and userId stored in local storage",
-              data.userId,
-              data.token
-            );
             window.location.href = "popup.html";
           }
         );
