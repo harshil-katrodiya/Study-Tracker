@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const studyTimeInput = document.getElementById('studyTime');
   const breakTimeInput = document.getElementById('breakTime');
   const startTimerBtn = document.getElementById('startTimer');
+  const resetTimerBtn = document.getElementById('resetTimer');
 
   // Handle tab visibility changes
   document.addEventListener('visibilitychange', () => {
@@ -119,57 +120,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Show notification
-  async function showNotification(title, message, icon = 'icons/icon-48.png') {
+  async function showNotification(title, message) {
     try {
-      const hasPermission = await requestNotificationPermission();
-      if (hasPermission) {
-        new Notification(title, {
-          body: message,
-          icon: icon,
-          badge: icon,
-          tag: 'pomodoro-notification',
-          requireInteraction: true,
-          silent: false
-        });
-      }
+      const browser = window.browser || window.chrome;
+      await browser.notifications.create({
+        type: 'basic',
+        iconUrl: browser.runtime.getURL('images/icon128.png'),
+        title: title,
+        message: message
+      });
     } catch (error) {
       console.error('Error showing notification:', error);
     }
   }
 
   function showPomodoroAlert(message, isBreak = false) {
-    const alert = document.createElement('div');
-    alert.className = 'timer-alert';
-    alert.style.backgroundColor = isBreak ? '#4CAF50' : '#2196F3';
-    alert.style.color = 'white';
-    alert.style.padding = '20px';
-    alert.style.borderRadius = '8px';
-    alert.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-    alert.style.fontSize = '16px';
-    alert.style.fontWeight = 'bold';
-    alert.style.textAlign = 'center';
-    alert.style.width = '80%';
-    alert.style.maxWidth = '300px';
-    alert.style.margin = '0 auto';
-    alert.style.position = 'fixed';
-    alert.style.top = '20px';
-    alert.style.left = '50%';
-    alert.style.transform = 'translateX(-50%)';
-    alert.style.zIndex = '1000';
-    alert.style.animation = 'slideIn 0.3s ease-out';
-    
-    const icon = document.createElement('div');
-    icon.style.fontSize = '24px';
-    icon.style.marginBottom = '10px';
-    icon.textContent = isBreak ? '☕' : '✨';
-    
-    const text = document.createElement('div');
-    text.textContent = message;
-    
-    alert.appendChild(icon);
-    alert.appendChild(text);
-    document.body.appendChild(alert);
-
     // Play notification sound
     const audio = new Audio(isBreak ? 'break.mp3' : 'complete.mp3');
     audio.play().catch(() => {}); // Ignore if sound fails to play
@@ -177,14 +142,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Show browser notification
     showNotification(
       isBreak ? 'Break Time!' : 'Study Time Complete!',
-      message,
-      'icons/icon-48.png'
+      message
     );
-
-    setTimeout(() => {
-      alert.style.animation = 'slideOut 0.3s ease-out';
-      setTimeout(() => alert.remove(), 300);
-    }, 5000);
   }
 
   function handleTimerComplete() {
@@ -201,10 +160,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       startPomodoroTimer(true);
     } else {
       showPomodoroAlert('Break time is over! Ready for another focused study session? 💪');
-      stopPomodoroTimer();
+      // Reset everything to normal state
+      isStudyTime = true;
+      pomodoroTimeLeft = 0;
+      pomodoroLabel.textContent = 'Study Time';
+      pomodoroDisplay.textContent = '00:00';
+      
+      // Reset button states
+      startTimerBtn.textContent = 'Start';
+      startTimerBtn.style.background = '#4CAF50';
+      startTimerBtn.disabled = false;
+      resetTimerBtn.disabled = true;
+      
+      // Clear the saved state
+      browser.storage.local.remove('pomodoroState');
     }
-    
-    savePomodoroState();
   }
 
   function startPomodoroTimer(resuming = false) {
@@ -231,7 +201,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     isPomodoroRunning = true;
     updatePomodoroDisplay();
     pomodoroLabel.textContent = isStudyTime ? 'Study Time' : 'Break Time';
-    startTimerBtn.textContent = 'Stop Timer';
+    
+    // Update button states
+    if (isStudyTime) {
+      startTimerBtn.textContent = 'Pause';
+      startTimerBtn.style.background = '#FFA726';
+      startTimerBtn.disabled = false;
+    } else {
+      startTimerBtn.textContent = 'Break';
+      startTimerBtn.style.background = '#4CAF50';
+      startTimerBtn.disabled = true;
+    }
+    resetTimerBtn.disabled = false;
 
     pomodoroInterval = setInterval(() => {
       if (!isPomodoroRunning) return;
@@ -246,17 +227,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 1000);
   }
 
-  function stopPomodoroTimer() {
+  function pausePomodoroTimer() {
+    if (isPomodoroRunning && isStudyTime) {
+      isPomodoroRunning = false;
+      clearInterval(pomodoroInterval);
+      pomodoroInterval = null;
+      
+      // Update button states
+      startTimerBtn.textContent = 'Start';
+      startTimerBtn.style.background = '#4CAF50';
+      startTimerBtn.disabled = false;
+      resetTimerBtn.disabled = false;
+      
+      savePomodoroState();
+    }
+  }
+
+  function resetPomodoroTimer() {
     isPomodoroRunning = false;
     if (pomodoroInterval) {
       clearInterval(pomodoroInterval);
       pomodoroInterval = null;
     }
-    startTimerBtn.textContent = 'Start Timer';
+    
+    // Reset button states
+    startTimerBtn.textContent = 'Start';
+    startTimerBtn.style.background = '#4CAF50';
+    startTimerBtn.disabled = false;
+    resetTimerBtn.disabled = true;
+    
+    // Reset display
     pomodoroLabel.textContent = 'Study Time';
-    pomodoroDisplay.textContent = '00:00';
     isStudyTime = true;
-    // Clear the saved state when stopping the timer
+    
+    // Reset to user's entered study time
+    studyTime = parseInt(studyTimeInput.value) || 25;
+    pomodoroTimeLeft = studyTime * 60;
+    updatePomodoroDisplay();
+    
+    // Clear the saved state
     browser.storage.local.remove('pomodoroState');
   }
 
@@ -268,12 +277,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Pomodoro Timer event listeners
   startTimerBtn.addEventListener('click', () => {
-    if (isPomodoroRunning) {
-      stopPomodoroTimer();
+    if (isPomodoroRunning && isStudyTime) {
+      pausePomodoroTimer();
     } else {
-      startPomodoroTimer();
+      // If timer was previously running (paused), resume from current time
+      if (pomodoroTimeLeft > 0) {
+        startPomodoroTimer(true);
+      } else {
+        startPomodoroTimer();
+      }
     }
   });
+
+  resetTimerBtn.addEventListener('click', resetPomodoroTimer);
 
   // Reset timer display when inputs change
   studyTimeInput.addEventListener('change', () => {
