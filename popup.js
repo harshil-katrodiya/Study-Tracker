@@ -1,7 +1,301 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const browser = window.browser || window.chrome;
+  
+  // Session Timer variable
+  let timerInterval = null;
+  
+  // Pomodoro Timer functionality
+  let pomodoroInterval = null;
+  let pomodoroTimeLeft = 0;
+  let isStudyTime = true;
+  let studyTime = 0;
+  let breakTime = 0;
+  let isPomodoroRunning = false;
+  let wasRunningBeforeHidden = false;
+
+  // Pomodoro Timer elements
+  const pomodoroDisplay = document.getElementById('timer');
+  const pomodoroLabel = document.getElementById('timerLabel');
+  const studyTimeInput = document.getElementById('studyTime');
+  const breakTimeInput = document.getElementById('breakTime');
+  const startTimerBtn = document.getElementById('startTimer');
+
+  // Handle tab visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Tab is hidden, pause the timer if it was running
+      if (isPomodoroRunning) {
+        wasRunningBeforeHidden = true;
+        clearInterval(pomodoroInterval);
+        pomodoroInterval = null;
+        savePomodoroState();
+      }
+    } else {
+      // Tab is visible again, resume if it was running before
+      if (wasRunningBeforeHidden) {
+        wasRunningBeforeHidden = false;
+        // Resume from the saved time
+        const lastState = browser.storage.local.get(['pomodoroState']).then(data => {
+          if (data.pomodoroState && data.pomodoroState.timeLeft > 0) {
+            pomodoroTimeLeft = data.pomodoroState.timeLeft;
+            isStudyTime = data.pomodoroState.isStudyTime;
+            startPomodoroTimer(true);
+          }
+        });
+      }
+    }
+  });
+
+  // Load saved Pomodoro state
+  async function loadPomodoroState() {
+    const data = await browser.storage.local.get(['pomodoroState']);
+    if (data.pomodoroState) {
+      const state = data.pomodoroState;
+      // Only restore state if the timer was running and not stopped
+      if (state.isRunning && !state.wasStopped) {
+        isPomodoroRunning = state.wasHidden ? false : state.isRunning;
+        wasRunningBeforeHidden = state.wasHidden && state.isRunning;
+        isStudyTime = state.isStudyTime;
+        studyTime = state.studyTime;
+        breakTime = state.breakTime;
+        pomodoroTimeLeft = state.timeLeft;
+        
+        if (state.isRunning) {
+          const timePassed = Math.floor((Date.now() - state.lastUpdate) / 1000);
+          pomodoroTimeLeft = Math.max(0, state.timeLeft - timePassed);
+          
+          updatePomodoroDisplay();
+          pomodoroLabel.textContent = isStudyTime ? 'Study Time' : 'Break Time';
+          startTimerBtn.textContent = 'Stop Timer';
+
+          if (pomodoroTimeLeft > 0) {
+            if (!document.hidden) {
+              startPomodoroTimer(true);
+            } else {
+              wasRunningBeforeHidden = true;
+            }
+          } else {
+            handleTimerComplete();
+          }
+        }
+      }
+      
+      // Restore input values
+      studyTimeInput.value = state.studyTime;
+      breakTimeInput.value = state.breakTime;
+    }
+  }
+
+  // Save Pomodoro state
+  async function savePomodoroState() {
+    await browser.storage.local.set({
+      pomodoroState: {
+        isRunning: isPomodoroRunning || wasRunningBeforeHidden,
+        isStudyTime: isStudyTime,
+        studyTime: parseInt(studyTimeInput.value),
+        breakTime: parseInt(breakTimeInput.value),
+        timeLeft: pomodoroTimeLeft,
+        lastUpdate: Date.now(),
+        wasHidden: document.hidden,
+        wasStopped: !isPomodoroRunning && !wasRunningBeforeHidden
+      }
+    });
+  }
+
+  // Pomodoro Timer functions
+  function formatPomodoroTime(minutes, seconds) {
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Request notification permission
+  async function requestNotificationPermission() {
+    try {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      return false;
+    }
+  }
+
+  // Show notification
+  async function showNotification(title, message, icon = 'icons/icon-48.png') {
+    try {
+      const hasPermission = await requestNotificationPermission();
+      if (hasPermission) {
+        new Notification(title, {
+          body: message,
+          icon: icon,
+          badge: icon,
+          tag: 'pomodoro-notification',
+          requireInteraction: true,
+          silent: false
+        });
+      }
+    } catch (error) {
+      console.error('Error showing notification:', error);
+    }
+  }
+
+  function showPomodoroAlert(message, isBreak = false) {
+    const alert = document.createElement('div');
+    alert.className = 'timer-alert';
+    alert.style.backgroundColor = isBreak ? '#4CAF50' : '#2196F3';
+    alert.style.color = 'white';
+    alert.style.padding = '20px';
+    alert.style.borderRadius = '8px';
+    alert.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    alert.style.fontSize = '16px';
+    alert.style.fontWeight = 'bold';
+    alert.style.textAlign = 'center';
+    alert.style.width = '80%';
+    alert.style.maxWidth = '300px';
+    alert.style.margin = '0 auto';
+    alert.style.position = 'fixed';
+    alert.style.top = '20px';
+    alert.style.left = '50%';
+    alert.style.transform = 'translateX(-50%)';
+    alert.style.zIndex = '1000';
+    alert.style.animation = 'slideIn 0.3s ease-out';
+    
+    const icon = document.createElement('div');
+    icon.style.fontSize = '24px';
+    icon.style.marginBottom = '10px';
+    icon.textContent = isBreak ? '☕' : '✨';
+    
+    const text = document.createElement('div');
+    text.textContent = message;
+    
+    alert.appendChild(icon);
+    alert.appendChild(text);
+    document.body.appendChild(alert);
+
+    // Play notification sound
+    const audio = new Audio(isBreak ? 'break.mp3' : 'complete.mp3');
+    audio.play().catch(() => {}); // Ignore if sound fails to play
+
+    // Show browser notification
+    showNotification(
+      isBreak ? 'Break Time!' : 'Study Time Complete!',
+      message,
+      'icons/icon-48.png'
+    );
+
+    setTimeout(() => {
+      alert.style.animation = 'slideOut 0.3s ease-out';
+      setTimeout(() => alert.remove(), 300);
+    }, 5000);
+  }
+
+  function handleTimerComplete() {
+    isPomodoroRunning = false;
+    clearInterval(pomodoroInterval);
+    pomodoroInterval = null;
+    
+    if (isStudyTime) {
+      showPomodoroAlert('Great job! Time to take a refreshing break! 🎉', true);
+      isStudyTime = false;
+      pomodoroTimeLeft = breakTime * 60;
+      pomodoroLabel.textContent = 'Break Time';
+      updatePomodoroDisplay();
+      startPomodoroTimer(true);
+    } else {
+      showPomodoroAlert('Break time is over! Ready for another focused study session? 💪');
+      stopPomodoroTimer();
+    }
+    
+    savePomodoroState();
+  }
+
+  function startPomodoroTimer(resuming = false) {
+    if (!resuming) {
+      // Get values from inputs only if not resuming
+      studyTime = parseInt(studyTimeInput.value) || 0;
+      breakTime = parseInt(breakTimeInput.value) || 0;
+
+      // Validate inputs
+      if (studyTime <= 0 || breakTime <= 0) {
+        showPomodoroAlert('Please enter valid study and break times');
+        return;
+      }
+
+      isStudyTime = true;
+      pomodoroTimeLeft = studyTime * 60;
+    }
+
+    // Clear any existing timer
+    if (pomodoroInterval) {
+      clearInterval(pomodoroInterval);
+    }
+
+    isPomodoroRunning = true;
+    updatePomodoroDisplay();
+    pomodoroLabel.textContent = isStudyTime ? 'Study Time' : 'Break Time';
+    startTimerBtn.textContent = 'Stop Timer';
+
+    pomodoroInterval = setInterval(() => {
+      if (!isPomodoroRunning) return;
+      
+      pomodoroTimeLeft--;
+      updatePomodoroDisplay();
+      savePomodoroState();
+
+      if (pomodoroTimeLeft <= 0) {
+        handleTimerComplete();
+      }
+    }, 1000);
+  }
+
+  function stopPomodoroTimer() {
+    isPomodoroRunning = false;
+    if (pomodoroInterval) {
+      clearInterval(pomodoroInterval);
+      pomodoroInterval = null;
+    }
+    startTimerBtn.textContent = 'Start Timer';
+    pomodoroLabel.textContent = 'Study Time';
+    pomodoroDisplay.textContent = '00:00';
+    isStudyTime = true;
+    // Clear the saved state when stopping the timer
+    browser.storage.local.remove('pomodoroState');
+  }
+
+  function updatePomodoroDisplay() {
+    const minutes = Math.floor(pomodoroTimeLeft / 60);
+    const seconds = pomodoroTimeLeft % 60;
+    pomodoroDisplay.textContent = formatPomodoroTime(minutes, seconds);
+  }
+
+  // Pomodoro Timer event listeners
+  startTimerBtn.addEventListener('click', () => {
+    if (isPomodoroRunning) {
+      stopPomodoroTimer();
+    } else {
+      startPomodoroTimer();
+    }
+  });
+
+  // Reset timer display when inputs change
+  studyTimeInput.addEventListener('change', () => {
+    if (!isPomodoroRunning) {
+      pomodoroDisplay.textContent = '00:00';
+      savePomodoroState();
+    }
+  });
+
+  breakTimeInput.addEventListener('change', () => {
+    if (!isPomodoroRunning) {
+      pomodoroDisplay.textContent = '00:00';
+      savePomodoroState();
+    }
+  });
+
+  // Load saved Pomodoro state when popup opens
+  loadPomodoroState();
+
+  // Study Session Timer elements
   const elements = {
-    timer: document.getElementById("startTime"),
+    sessionTimer: document.getElementById("startTime"),
     domain: document.getElementById("currentDomain"),
     stats: document.getElementById("studyStats"),
     chart: document.getElementById("statsChart").getContext("2d"),
@@ -17,7 +311,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   let chart = null;
-  let timerInterval = null;
 
   // Add new elements
   const domainInput = document.getElementById("domainInput");
@@ -168,22 +461,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function updateTimerDisplay(sessionData) {
-    clearInterval(timerInterval);
-
     if (!sessionData.currentDomain || !sessionData.startTime) {
-      elements.timer.textContent = "No active session";
+      elements.sessionTimer.textContent = "No active session";
       return;
     }
 
     const today = new Date().toISOString().split("T")[0];
     const storedSeconds = sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
 
-    timerInterval = setInterval(() => {
-      const liveSeconds = Math.floor((Date.now() - sessionData.startTime) / 1000);
-      const totalSeconds = storedSeconds + liveSeconds;
-      elements.timer.textContent = formatTime(totalSeconds * 1000) + 
-        (sessionData.isPaused ? " (Paused)" : "");
-    }, 1000);
+    // Clear any existing interval
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    // Only start the interval if the tab is visible
+    if (!document.hidden) {
+      const startTime = sessionData.startTime;
+      
+      timerInterval = setInterval(() => {
+        const currentTime = Date.now();
+        const liveSeconds = Math.floor((currentTime - startTime) / 1000);
+        const totalSeconds = storedSeconds + liveSeconds;
+        elements.sessionTimer.textContent = formatTime(totalSeconds * 1000) + 
+          (sessionData.isPaused ? " (Paused)" : "");
+      }, 1000);
+    }
 
     elements.domain.textContent = sessionData.currentDomain;
   }

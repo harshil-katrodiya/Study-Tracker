@@ -574,3 +574,4 @@ window.addEventListener("beforeunload", () => {
   saveCurrentStats();
   sendStudyData(); // Send data when popup closes
 });
+
