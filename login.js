@@ -18,7 +18,8 @@ document
       if (response.ok) {
         // Store session data in localStorage
         const sessionData = {
-          token: data.token,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
           userId: data.userId,
           lastActivity: new Date().getTime(),
           isLoggedIn: true
@@ -29,7 +30,8 @@ document
         const browserAPI = window.browser || window.chrome;
         browserAPI.storage.local.set(
           { 
-            authToken: data.token, 
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
             userId: data.userId,
             isLoggedIn: true,
             lastActivity: new Date().getTime()
