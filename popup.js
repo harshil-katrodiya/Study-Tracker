@@ -179,9 +179,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function startPomodoroTimer(resuming = false) {
     if (!resuming) {
-      // Get values from inputs only if not resuming
-      studyTime = parseInt(studyTimeInput.value) || 0;
-      breakTime = parseInt(breakTimeInput.value) || 0;
+      // Get values from inputs
+      studyTime = parseInt(studyTimeInput.value) || 25;
+      breakTime = parseInt(breakTimeInput.value) || 5;
 
       // Validate inputs
       if (studyTime <= 0 || breakTime <= 0) {
@@ -294,14 +294,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Reset timer display when inputs change
   studyTimeInput.addEventListener('change', () => {
     if (!isPomodoroRunning) {
-      pomodoroDisplay.textContent = '00:00';
+      studyTime = parseInt(studyTimeInput.value) || 25;
+      pomodoroTimeLeft = studyTime * 60;
+      updatePomodoroDisplay();
       savePomodoroState();
     }
   });
 
   breakTimeInput.addEventListener('change', () => {
     if (!isPomodoroRunning) {
-      pomodoroDisplay.textContent = '00:00';
+      breakTime = parseInt(breakTimeInput.value) || 5;
       savePomodoroState();
     }
   });
