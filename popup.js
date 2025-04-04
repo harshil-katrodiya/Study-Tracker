@@ -1,9 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const browser = window.browser || window.chrome;
-  
+
   // Session Timer variable
   let timerInterval = null;
-  
+
   // Pomodoro Timer functionality
   let pomodoroInterval = null;
   let pomodoroTimeLeft = 0;
@@ -14,15 +14,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   let wasRunningBeforeHidden = false;
 
   // Pomodoro Timer elements
-  const pomodoroDisplay = document.getElementById('timer');
-  const pomodoroLabel = document.getElementById('timerLabel');
-  const studyTimeInput = document.getElementById('studyTime');
-  const breakTimeInput = document.getElementById('breakTime');
-  const startTimerBtn = document.getElementById('startTimer');
-  const resetTimerBtn = document.getElementById('resetTimer');
+  const pomodoroDisplay = document.getElementById("timer");
+  const pomodoroLabel = document.getElementById("timerLabel");
+  const studyTimeInput = document.getElementById("studyTime");
+  const breakTimeInput = document.getElementById("breakTime");
+  const startTimerBtn = document.getElementById("startTimer");
+  const resetTimerBtn = document.getElementById("resetTimer");
 
   // Handle tab visibility changes
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       // Tab is hidden, pause the timer if it was running
       if (isPomodoroRunning) {
@@ -36,20 +36,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (wasRunningBeforeHidden) {
         wasRunningBeforeHidden = false;
         // Resume from the saved time
-        const lastState = browser.storage.local.get(['pomodoroState']).then(data => {
-          if (data.pomodoroState && data.pomodoroState.timeLeft > 0) {
-            pomodoroTimeLeft = data.pomodoroState.timeLeft;
-            isStudyTime = data.pomodoroState.isStudyTime;
-            startPomodoroTimer(true);
-          }
-        });
+        const lastState = browser.storage.local
+          .get(["pomodoroState"])
+          .then((data) => {
+            if (data.pomodoroState && data.pomodoroState.timeLeft > 0) {
+              pomodoroTimeLeft = data.pomodoroState.timeLeft;
+              isStudyTime = data.pomodoroState.isStudyTime;
+              startPomodoroTimer(true);
+            }
+          });
       }
     }
   });
 
   // Load saved Pomodoro state
   async function loadPomodoroState() {
-    const data = await browser.storage.local.get(['pomodoroState']);
+    const data = await browser.storage.local.get(["pomodoroState"]);
     if (data.pomodoroState) {
       const state = data.pomodoroState;
       // Only restore state if the timer was running and not stopped
@@ -60,14 +62,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         studyTime = state.studyTime;
         breakTime = state.breakTime;
         pomodoroTimeLeft = state.timeLeft;
-        
+
         if (state.isRunning) {
           const timePassed = Math.floor((Date.now() - state.lastUpdate) / 1000);
           pomodoroTimeLeft = Math.max(0, state.timeLeft - timePassed);
-          
+
           updatePomodoroDisplay();
-          pomodoroLabel.textContent = isStudyTime ? 'Study Time' : 'Break Time';
-          startTimerBtn.textContent = 'Stop Timer';
+          pomodoroLabel.textContent = isStudyTime ? "Study Time" : "Break Time";
+          startTimerBtn.textContent = "Stop Timer";
 
           if (pomodoroTimeLeft > 0) {
             if (!document.hidden) {
@@ -80,7 +82,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
       }
-      
+
       // Restore input values
       studyTimeInput.value = state.studyTime;
       breakTimeInput.value = state.breakTime;
@@ -98,23 +100,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         timeLeft: pomodoroTimeLeft,
         lastUpdate: Date.now(),
         wasHidden: document.hidden,
-        wasStopped: !isPomodoroRunning && !wasRunningBeforeHidden
-      }
+        wasStopped: !isPomodoroRunning && !wasRunningBeforeHidden,
+      },
     });
   }
 
   // Pomodoro Timer functions
   function formatPomodoroTime(minutes, seconds) {
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes.toString().padStart(2, "0")}:${seconds
+      .toString()
+      .padStart(2, "0")}`;
   }
 
   // Request notification permission
   async function requestNotificationPermission() {
     try {
       const permission = await Notification.requestPermission();
-      return permission === 'granted';
+      return permission === "granted";
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      console.error("Error requesting notification permission:", error);
       return false;
     }
   }
@@ -124,56 +128,55 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const browser = window.browser || window.chrome;
       await browser.notifications.create({
-        type: 'basic',
-        iconUrl: browser.runtime.getURL('images/icon128.png'),
+        type: "basic",
+        iconUrl: browser.runtime.getURL("images/icon128.png"),
         title: title,
-        message: message
+        message: message,
       });
     } catch (error) {
-      console.error('Error showing notification:', error);
+      console.error("Error showing notification:", error);
     }
   }
 
   function showPomodoroAlert(message, isBreak = false) {
     // Play notification sound
-    const audio = new Audio(isBreak ? 'break.mp3' : 'complete.mp3');
+    const audio = new Audio(isBreak ? "break.mp3" : "complete.mp3");
     audio.play().catch(() => {}); // Ignore if sound fails to play
 
     // Show browser notification
-    showNotification(
-      isBreak ? 'Break Time!' : 'Study Time Complete!',
-      message
-    );
+    showNotification(isBreak ? "Break Time!" : "Study Time Complete!", message);
   }
 
   function handleTimerComplete() {
     isPomodoroRunning = false;
     clearInterval(pomodoroInterval);
     pomodoroInterval = null;
-    
+
     if (isStudyTime) {
-      showPomodoroAlert('Great job! Time to take a refreshing break! 🎉', true);
+      showPomodoroAlert("Great job! Time to take a refreshing break! 🎉", true);
       isStudyTime = false;
       pomodoroTimeLeft = breakTime * 60;
-      pomodoroLabel.textContent = 'Break Time';
+      pomodoroLabel.textContent = "Break Time";
       updatePomodoroDisplay();
       startPomodoroTimer(true);
     } else {
-      showPomodoroAlert('Break time is over! Ready for another focused study session? 💪');
+      showPomodoroAlert(
+        "Break time is over! Ready for another focused study session? 💪"
+      );
       // Reset everything to normal state
       isStudyTime = true;
       pomodoroTimeLeft = 0;
-      pomodoroLabel.textContent = 'Study Time';
-      pomodoroDisplay.textContent = '00:00';
-      
+      pomodoroLabel.textContent = "Study Time";
+      pomodoroDisplay.textContent = "00:00";
+
       // Reset button states
-      startTimerBtn.textContent = 'Start';
-      startTimerBtn.style.background = '#4CAF50';
+      startTimerBtn.textContent = "Start";
+      startTimerBtn.style.background = "#4CAF50";
       startTimerBtn.disabled = false;
       resetTimerBtn.disabled = true;
-      
+
       // Clear the saved state
-      browser.storage.local.remove('pomodoroState');
+      browser.storage.local.remove("pomodoroState");
     }
   }
 
@@ -185,7 +188,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Validate inputs
       if (studyTime <= 0 || breakTime <= 0) {
-        showPomodoroAlert('Please enter valid study and break times');
+        showPomodoroAlert("Please enter valid study and break times");
         return;
       }
 
@@ -200,23 +203,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     isPomodoroRunning = true;
     updatePomodoroDisplay();
-    pomodoroLabel.textContent = isStudyTime ? 'Study Time' : 'Break Time';
-    
+    pomodoroLabel.textContent = isStudyTime ? "Study Time" : "Break Time";
+
     // Update button states
     if (isStudyTime) {
-      startTimerBtn.textContent = 'Pause';
-      startTimerBtn.style.background = '#FFA726';
+      startTimerBtn.textContent = "Pause";
+      startTimerBtn.style.background = "#FFA726";
       startTimerBtn.disabled = false;
     } else {
-      startTimerBtn.textContent = 'Break';
-      startTimerBtn.style.background = '#4CAF50';
+      startTimerBtn.textContent = "Break";
+      startTimerBtn.style.background = "#4CAF50";
       startTimerBtn.disabled = true;
     }
     resetTimerBtn.disabled = false;
 
     pomodoroInterval = setInterval(() => {
       if (!isPomodoroRunning) return;
-      
+
       pomodoroTimeLeft--;
       updatePomodoroDisplay();
       savePomodoroState();
@@ -232,13 +235,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       isPomodoroRunning = false;
       clearInterval(pomodoroInterval);
       pomodoroInterval = null;
-      
+
       // Update button states
-      startTimerBtn.textContent = 'Start';
-      startTimerBtn.style.background = '#4CAF50';
+      startTimerBtn.textContent = "Start";
+      startTimerBtn.style.background = "#4CAF50";
       startTimerBtn.disabled = false;
       resetTimerBtn.disabled = false;
-      
+
       savePomodoroState();
     }
   }
@@ -249,24 +252,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       clearInterval(pomodoroInterval);
       pomodoroInterval = null;
     }
-    
+
     // Reset button states
-    startTimerBtn.textContent = 'Start';
-    startTimerBtn.style.background = '#4CAF50';
+    startTimerBtn.textContent = "Start";
+    startTimerBtn.style.background = "#4CAF50";
     startTimerBtn.disabled = false;
     resetTimerBtn.disabled = true;
-    
+
     // Reset display
-    pomodoroLabel.textContent = 'Study Time';
+    pomodoroLabel.textContent = "Study Time";
     isStudyTime = true;
-    
+
     // Reset to user's entered study time
     studyTime = parseInt(studyTimeInput.value) || 25;
     pomodoroTimeLeft = studyTime * 60;
     updatePomodoroDisplay();
-    
+
     // Clear the saved state
-    browser.storage.local.remove('pomodoroState');
+    browser.storage.local.remove("pomodoroState");
   }
 
   function updatePomodoroDisplay() {
@@ -276,7 +279,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Pomodoro Timer event listeners
-  startTimerBtn.addEventListener('click', () => {
+  startTimerBtn.addEventListener("click", () => {
     if (isPomodoroRunning && isStudyTime) {
       pausePomodoroTimer();
     } else {
@@ -289,10 +292,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  resetTimerBtn.addEventListener('click', resetPomodoroTimer);
+  resetTimerBtn.addEventListener("click", resetPomodoroTimer);
 
   // Reset timer display when inputs change
-  studyTimeInput.addEventListener('change', () => {
+  studyTimeInput.addEventListener("change", () => {
     if (!isPomodoroRunning) {
       studyTime = parseInt(studyTimeInput.value) || 25;
       pomodoroTimeLeft = studyTime * 60;
@@ -301,7 +304,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  breakTimeInput.addEventListener('change', () => {
+  breakTimeInput.addEventListener("change", () => {
     if (!isPomodoroRunning) {
       breakTime = parseInt(breakTimeInput.value) || 5;
       savePomodoroState();
@@ -318,13 +321,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     stats: document.getElementById("studyStats"),
     chart: document.getElementById("statsChart").getContext("2d"),
     themeToggle: document.getElementById("themeToggle"),
-    themeIcon: document.getElementById("themeIcon")
+    themeIcon: document.getElementById("themeIcon"),
   };
 
   // Check authentication status first
   const isLoggedIn = await checkAuthStatus();
   if (!isLoggedIn) {
-    window.location.href = 'login.html';
+    window.location.href = "login.html";
     return;
   }
 
@@ -373,17 +376,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function checkAuthStatus() {
     try {
       // Check browser storage first
-      const storageData = await browser.storage.local.get(['isLoggedIn', 'lastActivity']);
-      
+      const storageData = await browser.storage.local.get([
+        "isLoggedIn",
+        "lastActivity",
+      ]);
+
       // Check localStorage as backup
-      const localSession = JSON.parse(localStorage.getItem('session'));
-      
+      const localSession = JSON.parse(localStorage.getItem("session"));
+
       if (storageData.isLoggedIn && storageData.lastActivity) {
         // Check if session is expired (24 hours)
         const now = new Date().getTime();
         const lastActivity = storageData.lastActivity;
         const sessionExpiry = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-        
+
         if (now - lastActivity < sessionExpiry) {
           return true;
         } else {
@@ -391,15 +397,19 @@ document.addEventListener("DOMContentLoaded", async () => {
           await clearSession();
           return false;
         }
-      } else if (localSession && localSession.isLoggedIn && localSession.lastActivity) {
+      } else if (
+        localSession &&
+        localSession.isLoggedIn &&
+        localSession.lastActivity
+      ) {
         // Restore session from localStorage if browser storage is empty
         await browser.storage.local.set(localSession);
         return true;
       }
-      
+
       return false;
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error("Error checking auth status:", error);
       return false;
     }
   }
@@ -408,32 +418,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       // Clear browser storage
       await browser.storage.local.clear();
-      
+
       // Clear localStorage
-      localStorage.removeItem('session');
-      
+      localStorage.removeItem("session");
+
       // Redirect to login page
-      window.location.href = 'login.html';
+      window.location.href = "login.html";
     } catch (error) {
-      console.error('Error clearing session:', error);
+      console.error("Error clearing session:", error);
     }
   }
 
   async function updateLastActivity() {
     try {
       const now = new Date().getTime();
-      
+
       // Update browser storage
       await browser.storage.local.set({ lastActivity: now });
-      
+
       // Update localStorage
-      const session = JSON.parse(localStorage.getItem('session'));
+      const session = JSON.parse(localStorage.getItem("session"));
       if (session) {
         session.lastActivity = now;
-        localStorage.setItem('session', JSON.stringify(session));
+        localStorage.setItem("session", JSON.stringify(session));
       }
     } catch (error) {
-      console.error('Error updating last activity:', error);
+      console.error("Error updating last activity:", error);
     }
   }
 
@@ -447,21 +457,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function initializeTheme() {
     // Get saved theme from storage
-    browser.storage.local.get(['theme'], (result) => {
-      const savedTheme = result.theme || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      elements.themeIcon.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+    browser.storage.local.get(["theme"], (result) => {
+      const savedTheme = result.theme || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      elements.themeIcon.textContent = savedTheme === "light" ? "🌙" : "☀️";
     });
   }
 
   function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const newTheme = currentTheme === "light" ? "dark" : "light";
+
     // Save theme preference
     browser.storage.local.set({ theme: newTheme }, () => {
-      document.documentElement.setAttribute('data-theme', newTheme);
-      elements.themeIcon.textContent = newTheme === 'light' ? '🌙' : '☀️';
+      document.documentElement.setAttribute("data-theme", newTheme);
+      elements.themeIcon.textContent = newTheme === "light" ? "🌙" : "☀️";
     });
   }
 
@@ -485,7 +495,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    const storedSeconds = sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
+    const storedSeconds =
+      sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
 
     // Clear any existing interval
     if (timerInterval) {
@@ -496,12 +507,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Only start the interval if the tab is visible
     if (!document.hidden) {
       const startTime = sessionData.startTime;
-      
+
       timerInterval = setInterval(() => {
         const currentTime = Date.now();
         const liveSeconds = Math.floor((currentTime - startTime) / 1000);
         const totalSeconds = storedSeconds + liveSeconds;
-        elements.sessionTimer.textContent = formatTime(totalSeconds * 1000) + 
+        elements.sessionTimer.textContent =
+          formatTime(totalSeconds * 1000) +
           (sessionData.isPaused ? " (Paused)" : "");
       }, 1000);
     }
@@ -537,11 +549,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getChartColors() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const isDark =
+      document.documentElement.getAttribute("data-theme") === "dark";
     return {
-      backgroundColor: isDark ? 'rgba(75, 192, 192, 0.1)' : 'rgba(75, 192, 192, 0.2)',
-      borderColor: isDark ? 'rgba(75, 192, 192, 0.8)' : 'rgba(75, 192, 192, 1)',
-      textColor: isDark ? '#ffffff' : '#333333'
+      backgroundColor: isDark
+        ? "rgba(75, 192, 192, 0.1)"
+        : "rgba(75, 192, 192, 0.2)",
+      borderColor: isDark ? "rgba(75, 192, 192, 0.8)" : "rgba(75, 192, 192, 1)",
+      textColor: isDark ? "#ffffff" : "#333333",
     };
   }
 
@@ -597,31 +612,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
       options: {
         scales: {
-          y: { 
+          y: {
             beginAtZero: true,
             grid: {
-              color: colors.borderColor
+              color: colors.borderColor,
             },
             ticks: {
-              color: colors.textColor
-            }
+              color: colors.textColor,
+            },
           },
           x: {
             grid: {
-              color: colors.borderColor
+              color: colors.borderColor,
             },
             ticks: {
-              color: colors.textColor
-            }
-          }
+              color: colors.textColor,
+            },
+          },
         },
         plugins: {
           legend: {
             labels: {
-              color: colors.textColor
-            }
-          }
-        }
+              color: colors.textColor,
+            },
+          },
+        },
       },
     });
   }
