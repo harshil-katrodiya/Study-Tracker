@@ -6,13 +6,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     stats: document.getElementById("studyStats"),
     chart: document.getElementById("statsChart").getContext("2d"),
     themeToggle: document.getElementById("themeToggle"),
-    themeIcon: document.getElementById("themeIcon")
+    themeIcon: document.getElementById("themeIcon"),
   };
 
   // Check authentication status first
   const isLoggedIn = await checkAuthStatus();
   if (!isLoggedIn) {
-    window.location.href = 'login.html';
+    window.location.href = "login.html";
     return;
   }
 
@@ -62,17 +62,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function checkAuthStatus() {
     try {
       // Check browser storage first
-      const storageData = await browser.storage.local.get(['isLoggedIn', 'lastActivity']);
-      
+      const storageData = await browser.storage.local.get([
+        "isLoggedIn",
+        "lastActivity",
+      ]);
+
       // Check localStorage as backup
-      const localSession = JSON.parse(localStorage.getItem('session'));
-      
+      const localSession = JSON.parse(localStorage.getItem("session"));
+
       if (storageData.isLoggedIn && storageData.lastActivity) {
         // Check if session is expired (24 hours)
         const now = new Date().getTime();
         const lastActivity = storageData.lastActivity;
         const sessionExpiry = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-        
+
         if (now - lastActivity < sessionExpiry) {
           return true;
         } else {
@@ -80,15 +83,19 @@ document.addEventListener("DOMContentLoaded", async () => {
           await clearSession();
           return false;
         }
-      } else if (localSession && localSession.isLoggedIn && localSession.lastActivity) {
+      } else if (
+        localSession &&
+        localSession.isLoggedIn &&
+        localSession.lastActivity
+      ) {
         // Restore session from localStorage if browser storage is empty
         await browser.storage.local.set(localSession);
         return true;
       }
-      
+
       return false;
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error("Error checking auth status:", error);
       return false;
     }
   }
@@ -97,32 +104,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       // Clear browser storage
       await browser.storage.local.clear();
-      
+
       // Clear localStorage
-      localStorage.removeItem('session');
-      
+      localStorage.removeItem("session");
+
       // Redirect to login page
-      window.location.href = 'login.html';
+      window.location.href = "login.html";
     } catch (error) {
-      console.error('Error clearing session:', error);
+      console.error("Error clearing session:", error);
     }
   }
 
   async function updateLastActivity() {
     try {
       const now = new Date().getTime();
-      
+
       // Update browser storage
       await browser.storage.local.set({ lastActivity: now });
-      
+
       // Update localStorage
-      const session = JSON.parse(localStorage.getItem('session'));
+      const session = JSON.parse(localStorage.getItem("session"));
       if (session) {
         session.lastActivity = now;
-        localStorage.setItem('session', JSON.stringify(session));
+        localStorage.setItem("session", JSON.stringify(session));
       }
     } catch (error) {
-      console.error('Error updating last activity:', error);
+      console.error("Error updating last activity:", error);
     }
   }
 
@@ -136,21 +143,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function initializeTheme() {
     // Get saved theme from storage
-    browser.storage.local.get(['theme'], (result) => {
-      const savedTheme = result.theme || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      elements.themeIcon.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+    browser.storage.local.get(["theme"], (result) => {
+      const savedTheme = result.theme || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      elements.themeIcon.textContent = savedTheme === "light" ? "🌙" : "☀️";
     });
   }
 
   function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const newTheme = currentTheme === "light" ? "dark" : "light";
+
     // Save theme preference
     browser.storage.local.set({ theme: newTheme }, () => {
-      document.documentElement.setAttribute('data-theme', newTheme);
-      elements.themeIcon.textContent = newTheme === 'light' ? '🌙' : '☀️';
+      document.documentElement.setAttribute("data-theme", newTheme);
+      elements.themeIcon.textContent = newTheme === "light" ? "🌙" : "☀️";
     });
   }
 
@@ -176,12 +183,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    const storedSeconds = sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
+    const storedSeconds =
+      sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
 
     timerInterval = setInterval(() => {
-      const liveSeconds = Math.floor((Date.now() - sessionData.startTime) / 1000);
+      const liveSeconds = Math.floor(
+        (Date.now() - sessionData.startTime) / 1000
+      );
       const totalSeconds = storedSeconds + liveSeconds;
-      elements.timer.textContent = formatTime(totalSeconds * 1000) + 
+      elements.timer.textContent =
+        formatTime(totalSeconds * 1000) +
         (sessionData.isPaused ? " (Paused)" : "");
     }, 1000);
 
@@ -216,11 +227,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getChartColors() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const isDark =
+      document.documentElement.getAttribute("data-theme") === "dark";
     return {
-      backgroundColor: isDark ? 'rgba(75, 192, 192, 0.1)' : 'rgba(75, 192, 192, 0.2)',
-      borderColor: isDark ? 'rgba(75, 192, 192, 0.8)' : 'rgba(75, 192, 192, 1)',
-      textColor: isDark ? '#ffffff' : '#333333'
+      backgroundColor: isDark
+        ? "rgba(75, 192, 192, 0.1)"
+        : "rgba(75, 192, 192, 0.2)",
+      borderColor: isDark ? "rgba(75, 192, 192, 0.8)" : "rgba(75, 192, 192, 1)",
+      textColor: isDark ? "#ffffff" : "#333333",
     };
   }
 
@@ -276,31 +290,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
       options: {
         scales: {
-          y: { 
+          y: {
             beginAtZero: true,
             grid: {
-              color: colors.borderColor
+              color: colors.borderColor,
             },
             ticks: {
-              color: colors.textColor
-            }
+              color: colors.textColor,
+            },
           },
           x: {
             grid: {
-              color: colors.borderColor
+              color: colors.borderColor,
             },
             ticks: {
-              color: colors.textColor
-            }
-          }
+              color: colors.textColor,
+            },
+          },
         },
         plugins: {
           legend: {
             labels: {
-              color: colors.textColor
-            }
-          }
-        }
+              color: colors.textColor,
+            },
+          },
+        },
       },
     });
   }
