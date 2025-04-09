@@ -110,6 +110,7 @@ browserAPI.tabs.onRemoved.addListener(handleTabRemoval);
 
 // Periodic check to detect tab changes
 setInterval(checkActiveTab, 60000);
+setInterval(checkActiveTabValidity, 1000); // runs every 5 seconds to stop time on blank tabs
 
 async function checkActiveTab() {
   const tabs = await browserAPI.tabs.query({
@@ -117,6 +118,33 @@ async function checkActiveTab() {
     currentWindow: true,
   });
   if (tabs[0]?.url) handleTabChange(tabs[0]);
+}
+
+async function checkActiveTabValidity() {
+  try {
+    const [tab] = await browserAPI.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    const url = tab?.url;
+
+    if (!url || !isValidUrl(url)) {
+      // This is a blank or non-trackable tab
+      if (studySessionData.currentDomain) {
+        console.log("Blank or invalid tab detected. Ending current session.");
+        saveCurrentStats();
+        clearInterval(
+          studySessionData.activeTimers[studySessionData.currentDomain]
+        );
+        studySessionData.currentDomain = null;
+        studySessionData.startTime = null;
+        studySessionData.lastUpdate = null;
+        saveToStorage();
+      }
+    }
+  } catch (error) {
+    console.error("Error checking active tab validity:", error);
+  }
 }
 
 // Handle tab activation
@@ -602,4 +630,3 @@ window.addEventListener("beforeunload", () => {
   saveCurrentStats();
   sendStudyData(); // Send data when popup closes
 });
-
