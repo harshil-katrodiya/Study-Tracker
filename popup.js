@@ -479,34 +479,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function updateTimerDisplay(sessionData) {
-    if (!sessionData.currentDomain || !sessionData.startTime) {
+    if (!sessionData.currentDomain) {
       elements.sessionTimer.textContent = "No active session";
+      elements.domain.textContent = "No active domain";
       return;
     }
 
     const today = new Date().toISOString().split("T")[0];
     const storedSeconds = sessionData.dailyStats[today]?.[sessionData.currentDomain] || 0;
-
-    // Clear any existing interval
+    
+    // Clear any existing interval to prevent multiple timers running
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
     }
 
-    // Only start the interval if the tab is visible
-    if (!document.hidden) {
-      const startTime = sessionData.startTime;
+    // Set initial display with stored seconds
+    elements.sessionTimer.textContent = formatTime(storedSeconds * 1000) + 
+      (sessionData.isPaused ? " (Paused)" : "");
+    elements.domain.textContent = sessionData.currentDomain;
+    
+    // Only start live timer if we have an active session that's not paused
+    if (sessionData.currentDomain && sessionData.startTime && !sessionData.isPaused && !document.hidden) {
+      const startTime = Date.now(); // Reference time for our display timer
+      const initialSeconds = storedSeconds; // Capture initial seconds
       
       timerInterval = setInterval(() => {
+        // Only increment by 1 second each second (don't calculate from the original startTime)
         const currentTime = Date.now();
-        const liveSeconds = Math.floor((currentTime - startTime) / 1000);
-        const totalSeconds = storedSeconds + liveSeconds;
-        elements.sessionTimer.textContent = formatTime(totalSeconds * 1000) + 
-          (sessionData.isPaused ? " (Paused)" : "");
+        const displaySeconds = initialSeconds + Math.floor((currentTime - startTime) / 1000);
+        elements.sessionTimer.textContent = formatTime(displaySeconds * 1000);
       }, 1000);
     }
-
-    elements.domain.textContent = sessionData.currentDomain;
   }
 
   async function updateStatsDisplay(sessionData) {
@@ -719,4 +723,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("Error removing domain:", error);
     }
   }
+
+  // Add visibility change handling for popup
+  document.addEventListener("visibilitychange", () => {
+    // Reload data when popup becomes visible again
+    if (!document.hidden) {
+      loadData();
+    } else if (timerInterval) {
+      // Clear display timer when popup is hidden
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  });
 });

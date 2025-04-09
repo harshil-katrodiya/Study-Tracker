@@ -2,8 +2,8 @@ console.log("Background script is running");
 
 const browserAPI = window.browser || window.chrome;
 console.log(
-  "Using browser API:",
-  browserAPI === window.browser ? "Firefox" : "Chrome"
+    "Using browser API:",
+    browserAPI === window.browser ? "Firefox" : "Chrome"
 );
 
 // URL validation function
@@ -11,9 +11,9 @@ function isValidUrl(url) {
   try {
     const urlObj = new URL(url);
     return !(
-      urlObj.protocol === "moz-extension:" ||
-      urlObj.protocol === "about:" ||
-      urlObj.protocol === "resource:"
+        urlObj.protocol === "moz-extension:" ||
+        urlObj.protocol === "about:" ||
+        urlObj.protocol === "resource:"
     );
   } catch {
     return false;
@@ -26,7 +26,8 @@ let studySessionData = {
   startTime: null,
   dailyStats: {},
   activeTimers: {},
-  lastUpdate: null
+  lastUpdate: null,
+  currentTabId: null
 };
 
 // Add after studySessionData declaration
@@ -87,21 +88,21 @@ const excludedDomains = [
 
 // Initialize data from storage
 browserAPI.storage.local
-  .get(["whitelistedDomains", "studySessionData"])
-  .then((data) => {
-    console.log("Initializing data from storage:", data);
-    if (data.whitelistedDomains) {
-      whitelistedDomains = data.whitelistedDomains;
-      console.log("Loaded whitelisted domains:", whitelistedDomains);
-    }
-    if (data.studySessionData) {
-      studySessionData = data.studySessionData;
-      console.log("Loaded study session data:", studySessionData);
-    }
-  })
-  .catch((error) => {
-    console.error("Error initializing data:", error);
-  });
+    .get(["whitelistedDomains", "studySessionData"])
+    .then((data) => {
+      console.log("Initializing data from storage:", data);
+      if (data.whitelistedDomains) {
+        whitelistedDomains = data.whitelistedDomains;
+        console.log("Loaded whitelisted domains:", whitelistedDomains);
+      }
+      if (data.studySessionData) {
+        studySessionData = data.studySessionData;
+        console.log("Loaded study session data:", studySessionData);
+      }
+    })
+    .catch((error) => {
+      console.error("Error initializing data:", error);
+    });
 
 // Tab monitoring: Listen for tab activation, update, and removal
 browserAPI.tabs.onActivated.addListener(handleTabActivation);
@@ -121,18 +122,60 @@ async function checkActiveTab() {
 
 // Handle tab activation
 async function handleTabActivation(activeInfo) {
-  const tab = await browserAPI.tabs.get(activeInfo.tabId);
-  if (tab?.url && isValidUrl(tab.url)) handleTabChange(tab);
+  try {
+    const tab = await browserAPI.tabs.get(activeInfo.tabId);
+    if (tab?.url && isValidUrl(tab.url)) {
+      handleTabChange(tab);
+    } else {
+      // Stop tracking time if the new tab is invalid
+      stopTrackingTime();
+    }
+  } catch (error) {
+    console.error("Error handling tab activation:", error);
+  }
 }
 
 // Handle tab update
 function handleTabUpdate(tabId, changeInfo, tab) {
-  if (changeInfo.url) handleTabChange(tab);
+  try {
+    if (changeInfo.url && tab.active) {
+      handleTabChange(tab);
+    } else if (!tab.active) {
+      // Stop tracking time if the tab is no longer active
+      stopTrackingTime();
+    }
+  } catch (error) {
+    console.error("Error handling tab update:", error);
+  }
 }
 
 // Handle tab removal
-function handleTabRemoval() {
-  saveCurrentStats();
+function handleTabRemoval(tabId) {
+  try {
+    if (studySessionData.currentTabId === tabId) {
+      stopTrackingTime();
+    }
+  } catch (error) {
+    console.error("Error handling tab removal:", error);
+  }
+}
+
+// Stop tracking time for the current domain
+function stopTrackingTime() {
+  try {
+    if (studySessionData.currentDomain) {
+      saveCurrentStats(); // Save the current session stats
+      clearInterval(studySessionData.activeTimers[studySessionData.currentDomain]); // Clear the interval
+      delete studySessionData.activeTimers[studySessionData.currentDomain]; // Remove the timer reference
+      studySessionData.currentDomain = null;
+      studySessionData.startTime = null;
+      studySessionData.lastUpdate = null;
+      studySessionData.currentTabId = null;
+      saveToStorage(); // Save updated data to storage
+    }
+  } catch (error) {
+    console.error("Error stopping time tracking:", error);
+  }
 }
 
 // Update isStripeUrl function to remove localhost check
@@ -143,8 +186,8 @@ function isStripeUrl(url) {
     const path = urlObj.pathname.toLowerCase();
 
     // Check if domain is Stripe-related
-    if (excludedDomains.some(excludedDomain => 
-      domain === excludedDomain || domain.endsWith("." + excludedDomain))) {
+    if (excludedDomains.some(excludedDomain =>
+        domain === excludedDomain || domain.endsWith("." + excludedDomain))) {
       return true;
     }
 
@@ -182,61 +225,45 @@ function isDonationPage(url) {
 
 // Handle tab change - updates the current domain and initializes tracking
 async function handleTabChange(tab) {
-  if (!tab?.url) return;
+  try {
+    if (!tab?.url) return;
 
-  const url = new URL(tab.url);
-  const domain = url.hostname.replace("www.", "");
+    const url = new URL(tab.url);
+    const domain = url.hostname.replace("www.", "");
 
-  // Save stats for previous domain
-  if (studySessionData.currentDomain) {
-    saveCurrentStats();
-    clearInterval(
-      studySessionData.activeTimers[studySessionData.currentDomain]
-    );
+    // Stop tracking time for the previous domain
+    stopTrackingTime();
+
+    // Check if URL is donation page or Stripe-related
+    if (isDonationPage(tab.url) || isStripeUrl(tab.url)) {
+      saveToStorage();
+      return;
+    }
+
+    // Check if new domain is whitelisted
+    if (shouldAllowDomain(domain)) {
+      // Set new domain and start time
+      studySessionData.currentDomain = domain;
+      studySessionData.startTime = Date.now();
+      studySessionData.lastUpdate = Date.now();
+      studySessionData.currentTabId = tab.id;
+
+      // Initialize daily stats
+      const today = new Date().toISOString().split("T")[0];
+      studySessionData.dailyStats[today] =
+        studySessionData.dailyStats[today] || {};
+      studySessionData.dailyStats[today][domain] =
+        studySessionData.dailyStats[today][domain] || 0;
+
+      // Start tracking time
+      trackTime(domain);
+      storeVisitedUrl(tab.url);
+    } else {
+      saveToStorage();
+    }
+  } catch (error) {
+    console.error("Error handling tab change:", error);
   }
-
-  // Check if URL is donation page
-  if (isDonationPage(tab.url)) {
-    studySessionData.currentDomain = null;
-    studySessionData.startTime = null;
-    studySessionData.lastUpdate = null;
-    saveToStorage();
-    return;
-  }
-
-  // Check if URL is Stripe-related
-  if (isStripeUrl(tab.url)) {
-    studySessionData.currentDomain = null;
-    studySessionData.startTime = null;
-    studySessionData.lastUpdate = null;
-    saveToStorage();
-    return;
-  }
-
-  // Check if new domain is whitelisted
-  if (shouldAllowDomain(domain)) {
-    // Set new domain and start time
-    studySessionData.currentDomain = domain;
-    studySessionData.startTime = Date.now();
-    studySessionData.lastUpdate = Date.now();
-
-    // Initialize daily stats
-    const today = new Date().toISOString().split("T")[0];
-    studySessionData.dailyStats[today] =
-      studySessionData.dailyStats[today] || {};
-    studySessionData.dailyStats[today][domain] =
-      studySessionData.dailyStats[today][domain] || 0;
-
-    // Start tracking time
-    trackTime(domain);
-    storeVisitedUrl(tab.url);
-  } else {
-    studySessionData.currentDomain = null;
-    studySessionData.startTime = null;
-    studySessionData.lastUpdate = null;
-  }
-
-  saveToStorage();
 }
 
 // Update the token check
@@ -293,7 +320,7 @@ async function sendStudyData() {
     try {
       const result = await browser.storage.local.get(["accessToken", "userId"]);
       let token = result.accessToken;
-      
+
       if (!token) {
         console.log("No access token found, skipping sending study data.");
         return;
@@ -363,8 +390,10 @@ async function sendStudyData() {
 
 // Track time spent on the current domain
 function trackTime(domain) {
-  if (studySessionData.activeTimers[domain]) {
-    clearInterval(studySessionData.activeTimers[domain]);
+  // Clear any existing interval for ALL domains first
+  for (const d in studySessionData.activeTimers) {
+    clearInterval(studySessionData.activeTimers[d]);
+    delete studySessionData.activeTimers[d];
   }
 
   // Update lastUpdate immediately
@@ -373,51 +402,56 @@ function trackTime(domain) {
   studySessionData.activeTimers[domain] = setInterval(() => {
     const now = Date.now();
     const today = new Date().toISOString().split("T")[0];
+    
+    // Only update time if the browser is focused and visible
+    if (!document.hidden) {
+      // Initialize daily stats if needed
+      studySessionData.dailyStats[today] = studySessionData.dailyStats[today] || {};
+      studySessionData.dailyStats[today][domain] = studySessionData.dailyStats[today][domain] || 0;
 
-    // Initialize daily stats if needed
-    studySessionData.dailyStats[today] = studySessionData.dailyStats[today] || {};
-    studySessionData.dailyStats[today][domain] = studySessionData.dailyStats[today][domain] || 0;
-
-    if (studySessionData.lastUpdate) {
-      // Calculate elapsed time since last update
-      const elapsedSeconds = Math.floor((now - studySessionData.lastUpdate) / 1000);
-      if (elapsedSeconds > 0) {
-        studySessionData.dailyStats[today][domain] += elapsedSeconds;
+      if (studySessionData.lastUpdate) {
+        // Calculate elapsed time since last update (capped at max 5 seconds to prevent huge jumps)
+        const elapsedSeconds = Math.min(5, Math.floor((now - studySessionData.lastUpdate) / 1000));
+        if (elapsedSeconds > 0) {
+          studySessionData.dailyStats[today][domain] += elapsedSeconds;
+        }
       }
     }
 
-    studySessionData.lastUpdate = now;
-    saveToStorage();
-  }, 5000); // Changed to 5 seconds for better performance
+    studySessionData.lastUpdate = now; // Update lastUpdate to the current time
+    saveToStorage(); // Save updated data to storage
+  }, 1000); // Run every second for accurate tracking
 }
 
 // Save current session time to the daily stats
 function saveCurrentStats() {
-  if (!studySessionData.currentDomain || !studySessionData.startTime) return;
+  if (!studySessionData.currentDomain || !studySessionData.startTime || !studySessionData.lastUpdate) return;
 
   const now = Date.now();
   const today = new Date().toISOString().split("T")[0];
 
-  // Calculate elapsed time
-  const elapsedSeconds = Math.floor((now - studySessionData.startTime) / 1000);
+  // Calculate elapsed time (capped at max 5 seconds to prevent huge jumps)
+  const elapsedSeconds = Math.min(5, Math.floor((now - studySessionData.lastUpdate) / 1000));
 
   if (elapsedSeconds > 0) {
     // Initialize if needed
     studySessionData.dailyStats[today] = studySessionData.dailyStats[today] || {};
-    studySessionData.dailyStats[today][studySessionData.currentDomain] = 
+    studySessionData.dailyStats[today][studySessionData.currentDomain] =
       studySessionData.dailyStats[today][studySessionData.currentDomain] || 0;
 
     // Add elapsed time to daily stats
     studySessionData.dailyStats[today][studySessionData.currentDomain] += elapsedSeconds;
   }
 
-  // Clear the timer for the current domain
-  if (studySessionData.activeTimers[studySessionData.currentDomain]) {
-    clearInterval(studySessionData.activeTimers[studySessionData.currentDomain]);
-    delete studySessionData.activeTimers[studySessionData.currentDomain];
+  // Clear ALL timers
+  for (const domain in studySessionData.activeTimers) {
+    clearInterval(studySessionData.activeTimers[domain]);
+    delete studySessionData.activeTimers[domain];
   }
 
-  saveToStorage();
+  studySessionData.startTime = null; // Reset startTime
+  studySessionData.lastUpdate = null; // Reset lastUpdate
+  saveToStorage(); // Save updated data to storage
 }
 
 // Store the visited URL in the daily stats
@@ -425,7 +459,7 @@ function storeVisitedUrl(url) {
   const today = new Date().toISOString().split("T")[0];
   studySessionData.dailyStats[today] = studySessionData.dailyStats[today] || {};
   studySessionData.dailyStats[today].visitedUrls =
-    studySessionData.dailyStats[today].visitedUrls || [];
+      studySessionData.dailyStats[today].visitedUrls || [];
   studySessionData.dailyStats[today].visitedUrls.push(url);
 }
 
@@ -433,8 +467,8 @@ function storeVisitedUrl(url) {
 function saveToStorage() {
   try {
     browserAPI.storage.local
-      .set({ studySessionData })
-      .catch((error) => console.error("Error saving to storage:", error));
+        .set({ studySessionData })
+        .catch((error) => console.error("Error saving to storage:", error));
   } catch (error) {
     console.error("Error in saveToStorage:", error);
   }
@@ -446,8 +480,8 @@ function shouldAllowDomain(domain) {
   if (whitelistedDomains.length === 0) return true;
 
   // Check if domain is in excluded domains
-  if (excludedDomains.some(excludedDomain => 
-    domain === excludedDomain || domain.endsWith("." + excludedDomain))) {
+  if (excludedDomains.some(excludedDomain =>
+      domain === excludedDomain || domain.endsWith("." + excludedDomain))) {
     return false;
   }
 
@@ -465,10 +499,10 @@ function shouldAllowDomain(domain) {
   for (const mainDomain of whitelistedDomains) {
     if (resourceDomains[mainDomain]) {
       if (
-        resourceDomains[mainDomain].some(
-          (resourceDomain) =>
-            domain === resourceDomain || domain.endsWith("." + resourceDomain)
-        )
+          resourceDomains[mainDomain].some(
+              (resourceDomain) =>
+                  domain === resourceDomain || domain.endsWith("." + resourceDomain)
+          )
       ) {
         return true;
       }
@@ -480,66 +514,66 @@ function shouldAllowDomain(domain) {
 
 // Website blocking implementation
 browserAPI.webRequest.onBeforeRequest.addListener(
-  function (details) {
-    try {
-      // Always allow extension and browser resources
-      if (
-        details.url.startsWith("moz-extension://") ||
-        details.url.startsWith("about:") ||
-        details.url.startsWith("resource:")
-      ) {
+    function (details) {
+      try {
+        // Always allow extension and browser resources
+        if (
+            details.url.startsWith("moz-extension://") ||
+            details.url.startsWith("about:") ||
+            details.url.startsWith("resource:")
+        ) {
+          return { cancel: false };
+        }
+
+        const url = new URL(details.url);
+        const domain = url.hostname.replace(/^www\./, "");
+
+        // Only count attempts for main page loads
+        if (!shouldAllowDomain(domain) && details.type === "main_frame") {
+          totalBlockedAttempts++;
+          console.log("Blocked attempt count:", totalBlockedAttempts);
+
+          // If user has attempted to visit any blocked site 3 or more times
+          if (totalBlockedAttempts >= 3) {
+            console.log("Showing notification for multiple blocked attempts");
+            // Show distraction alert notification
+            browserAPI.notifications.create({
+              type: 'basic',
+              iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
+              title: 'Study Tracker',
+              message: 'Stay focused! Keep up the good work!'
+            });
+
+            // Reset the counter
+            totalBlockedAttempts = 0;
+          }
+        }
+
+        return { cancel: !shouldAllowDomain(domain) };
+      } catch (error) {
+        console.error("Error processing URL:", error);
         return { cancel: false };
       }
-
-      const url = new URL(details.url);
-      const domain = url.hostname.replace(/^www\./, "");
-
-      // Only count attempts for main page loads
-      if (!shouldAllowDomain(domain) && details.type === "main_frame") {
-        totalBlockedAttempts++;
-        console.log("Blocked attempt count:", totalBlockedAttempts);
-        
-        // If user has attempted to visit any blocked site 3 or more times
-        if (totalBlockedAttempts >= 3) {
-          console.log("Showing notification for multiple blocked attempts");
-          // Show distraction alert notification
-          browserAPI.notifications.create({
-            type: 'basic',
-            iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
-            title: 'Study Tracker',
-            message: 'Stay focused! Keep up the good work!'
-          });
-          
-          // Reset the counter
-          totalBlockedAttempts = 0;
-        }
-      }
-
-      return { cancel: !shouldAllowDomain(domain) };
-    } catch (error) {
-      console.error("Error processing URL:", error);
-      return { cancel: false };
-    }
-  },
-  {
-    urls: ["<all_urls>"],
-    types: ["main_frame"], // Only listen for main page loads
-  },
-  ["blocking"]
+    },
+    {
+      urls: ["<all_urls>"],
+      types: ["main_frame"], // Only listen for main page loads
+    },
+    ["blocking"]
 );
 
 // Handle messages from popup
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === "GET_WHITELIST") {
-        sendResponse({ domains: whitelistedDomains });
-    } else if (request.type === "UPDATE_WHITELIST") {
-        whitelistedDomains = request.domains;
-        browserAPI.storage.local.set({ whitelistedDomains });
-        sendResponse({ success: true });
-    } else if (request.action === "openDonate") {
-        browserAPI.tabs.create({ url: browserAPI.runtime.getURL("donate.html") });
-    }
-    return true;
+  if (request.type === "GET_WHITELIST") {
+    sendResponse({ domains: whitelistedDomains });
+  } else if (request.type === "UPDATE_WHITELIST") {
+    whitelistedDomains = request.domains;
+    browserAPI.storage.local.set({ whitelistedDomains });
+    sendResponse({ success: true });
+  } else if (request.action === "openDonate") {
+    browserAPI.tabs.create({ url: browserAPI.runtime.getURL("donate.html") });
+  }
+  return true;
 });
 
 // Check session status periodically
@@ -566,6 +600,7 @@ document.addEventListener("visibilitychange", () => {
   } else if (studySessionData.currentDomain) {
     studySessionData.startTime = Date.now();
     studySessionData.lastUpdate = Date.now();
+    trackTime(studySessionData.currentDomain);
   }
 });
 
@@ -574,4 +609,3 @@ window.addEventListener("beforeunload", () => {
   saveCurrentStats();
   sendStudyData(); // Send data when popup closes
 });
-
