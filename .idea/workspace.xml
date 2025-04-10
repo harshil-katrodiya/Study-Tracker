@@ -24,12 +24,12 @@
     &quot;assignee&quot;: &quot;jenilgoti21&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/harshil-katrodiya/Study-Tracker.git",
-    "accountId": "83929c1d-68f9-4c9a-af7e-1810ce997203"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/harshil-katrodiya/Study-Tracker.git&quot;,
+    &quot;accountId&quot;: &quot;83929c1d-68f9-4c9a-af7e-1810ce997203&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -89,6 +89,10 @@
       <workItem from="1744238814261" duration="473000" />
       <workItem from="1744239568206" duration="1912000" />
       <workItem from="1744251121285" duration="2206000" />
+      <workItem from="1744299664312" duration="871000" />
+      <workItem from="1744300675758" duration="2673000" />
+      <workItem from="1744306158381" duration="1626000" />
+      <workItem from="1744307822114" duration="417000" />
     </task>
     <task id="LOCAL-00001" summary="Added line graph functionality">
       <option name="closed" value="true" />
