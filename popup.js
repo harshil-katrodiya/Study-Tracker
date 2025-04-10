@@ -332,11 +332,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   let chart = null;
+  let chartType = "bar"; // Default chart type
+  let lastSessionData = null; // Store the last session data for reusing when changing chart type
 
   // Add new elements
   const domainInput = document.getElementById("domainInput");
   const addDomainButton = document.getElementById("addDomain");
   const whitelistContainer = document.getElementById("whitelistedDomains");
+  const graphToggle = document.getElementById("graphToggle");
+  const graphTypeLabel = document.getElementById("graphTypeLabel");
 
   // Initialize theme
   initializeTheme();
@@ -349,6 +353,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   addDomainButton.addEventListener("click", addDomain);
   domainInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") addDomain();
+  });
+
+  // Add event listener for graph toggle switch
+  graphToggle.addEventListener("change", function() {
+    chartType = this.checked ? "line" : "bar";
+    graphTypeLabel.textContent = this.checked ? "Line Graph" : "Bar Graph";
+    
+    // Only update if we have data
+    if (lastSessionData) {
+      updateChart(lastSessionData);
+    }
   });
 
   // Initial load
@@ -480,6 +495,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await browser.storage.local.get("studySessionData");
       if (!data.studySessionData) return;
 
+      lastSessionData = data.studySessionData; // Store session data for reuse
       updateTimerDisplay(data.studySessionData);
       updateStatsDisplay(data.studySessionData);
       updateChart(data.studySessionData);
@@ -574,7 +590,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function updateChart(sessionData) {
-    if (chart) chart.destroy();
+    if (chart) chart.destroy(); // Destroy the existing chart before creating a new one
 
     const response = await browser.runtime.sendMessage({
       type: "GET_WHITELIST",
@@ -597,22 +613,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       }));
 
     const colors = getChartColors();
+    
+    // Create dataset configuration based on chart type
+    const datasets = [{
+      label: "Minutes",
+      data: chartData.map((item) => item.minutes),
+      backgroundColor: chartType === "line" ? colors.borderColor : colors.backgroundColor,
+      borderColor: colors.borderColor,
+      borderWidth: 1,
+      tension: chartType === "line" ? 0.4 : 0, // Add curve to line graphs
+      fill: chartType === "line" ? false : true,
+      pointBackgroundColor: chartType === "line" ? colors.borderColor : undefined,
+      pointRadius: chartType === "line" ? 4 : 0,
+    }];
 
     chart = new Chart(elements.chart, {
-      type: "bar",
+      type: chartType,
       data: {
         labels: chartData.map((item) => item.domain),
-        datasets: [
-          {
-            label: "Minutes",
-            data: chartData.map((item) => item.minutes),
-            backgroundColor: colors.backgroundColor,
-            borderColor: colors.borderColor,
-            borderWidth: 1,
-          },
-        ],
+        datasets: datasets
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         scales: {
           y: {
             beginAtZero: true,
@@ -749,3 +772,4 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 });
+

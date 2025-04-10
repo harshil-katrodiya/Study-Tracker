@@ -24,9 +24,6 @@
     &quot;assignee&quot;: &quot;jenilgoti21&quot;
   }
 }</component>
-  <component name="GithubDefaultAccount">
-    <option name="defaultAccountId" value="c3b86a6a-da69-4958-8752-a4597ee2b855" />
-  </component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/harshil-katrodiya/Study-Tracker.git&quot;,
@@ -91,6 +88,7 @@
       <workItem from="1744238468461" duration="146000" />
       <workItem from="1744238814261" duration="473000" />
       <workItem from="1744239568206" duration="1912000" />
+      <workItem from="1744251121285" duration="1844000" />
     </task>
     <servers />
   </component>
