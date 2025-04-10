@@ -46,6 +46,10 @@ const StudySchema = new mongoose.Schema({
     min: 0,
     max: 86400, // Maximum 24 hours per session
   },
+  lastMilestoneNotified: {
+    type: Number,
+    default: 0, // in minutes
+  },
   timestamp: { type: Date, default: Date.now },
 });
 
@@ -184,12 +188,51 @@ app.post("/saveStudyData", verifyToken, async (req, res) => {
     if (existingRecord) {
       // Update existing record
       existingRecord.endTime = endTimeDate;
-      existingRecord.timeSpentInSeconds += timeSpentInSeconds;
+      existingRecord.timeSpentInSeconds = timeSpentInSeconds;
       await existingRecord.save();
 
       // Check if total time spent is >= 30 minutes for email notification
-      if (existingRecord.timeSpentInSeconds >= 1) {
-        // 30 minutes in seconds
+      // if (existingRecord.timeSpentInSeconds >= 180) {
+      //   // 30 minutes in seconds
+      //   const user = await UserModel.findById(req.userId);
+      //   if (user) {
+      //     const transporter = nodemailer.createTransport({
+      //       service: "gmail",
+      //       auth: {
+      //         user: process.env.EMAIL_USER,
+      //         pass: process.env.EMAIL_PASS,
+      //       },
+      //     });
+
+      //     const mailOptions = {
+      //       from: process.env.EMAIL_USER,
+      //       to: user.email,
+      //       subject: "🎉 Study Milestone Achieved!",
+      //       html: `
+      //         <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
+      //           <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      //             <h2 style="color: #2d89ef;">Great Job! 🎉</h2>
+      //             <p>Hello ${user.firstName},</p>
+      //             <p>You've reached a study milestone! You've spent ${Math.floor(
+      //               existingRecord.timeSpentInSeconds / 60
+      //             )} minutes studying on <strong>${site}</strong> today.</p>
+      //             <p>Keep up the excellent work! Your dedication to learning is impressive.</p>
+      //             <hr style="margin: 30px 0;">
+      //             <p style="font-size: 12px; color: #777;">Thank you for using Study Tracker!<br>The Study Tracker Team</p>
+      //           </div>
+      //         </div>
+      //       `,
+      //     };
+
+      //     await transporter.sendMail(mailOptions);
+      //     console.log(`Milestone email sent to ${user.email}`);
+      //   }
+      // }
+      // Convert to minutes (rounded down)
+      const totalMinutes = Math.floor(existingRecord.timeSpentInSeconds / 60);
+      const nextMilestone = (existingRecord.lastMilestoneNotified || 0) + 2;
+
+      if (totalMinutes >= nextMilestone) {
         const user = await UserModel.findById(req.userId);
         if (user) {
           const transporter = nodemailer.createTransport({
@@ -203,25 +246,29 @@ app.post("/saveStudyData", verifyToken, async (req, res) => {
           const mailOptions = {
             from: process.env.EMAIL_USER,
             to: user.email,
-            subject: "🎉 Study Milestone Achieved!",
+            subject: `🎉 You've studied ${nextMilestone} minutes on ${site}!`,
             html: `
-              <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
-                <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                  <h2 style="color: #2d89ef;">Great Job! 🎉</h2>
-                  <p>Hello ${user.firstName},</p>
-                  <p>You've reached a study milestone! You've spent ${Math.round(
-                    existingRecord.timeSpentInSeconds / 60
-                  )} minutes studying on <strong>${site}</strong> today.</p>
-                  <p>Keep up the excellent work! Your dedication to learning is impressive.</p>
-                  <hr style="margin: 30px 0;">
-                  <p style="font-size: 12px; color: #777;">Thank you for using Study Tracker!<br>The Study Tracker Team</p>
-                </div>
-              </div>
-            `,
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
+          <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h2 style="color: #2d89ef;">Awesome Job!</h2>
+            <p>Hello ${user.firstName},</p>
+            <p>You've spent <strong>${totalMinutes} minutes</strong> studying on <strong>${site}</strong> today.</p>
+            <p>This marks your <strong>${nextMilestone}-minute milestone</strong>! 🚀</p>
+            <hr style="margin: 30px 0;">
+            <p style="font-size: 12px; color: #777;">Thanks for using Study Tracker!<br>The Team</p>
+          </div>
+        </div>
+      `,
           };
 
           await transporter.sendMail(mailOptions);
-          console.log(`Milestone email sent to ${user.email}`);
+          console.log(
+            `📧 ${nextMilestone}-minute milestone email sent to ${user.email}`
+          );
+
+          // Update milestone
+          existingRecord.lastMilestoneNotified = nextMilestone;
+          await existingRecord.save();
         }
       }
     } else {
@@ -237,7 +284,7 @@ app.post("/saveStudyData", verifyToken, async (req, res) => {
       await newData.save();
 
       // Check if time spent is >= 30 minutes for email notification
-      if (timeSpentInSeconds >= 1) {
+      if (timeSpentInSeconds >= 180) {
         // 30 minutes in seconds
         const user = await UserModel.findById(req.userId);
         if (user) {
