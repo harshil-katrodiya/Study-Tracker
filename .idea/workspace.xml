@@ -121,7 +121,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Added line graph functionality" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added line graph functionality" />
+    <MESSAGE value="Changed UI of whole extension" />
+    <option name="LAST_COMMIT_MESSAGE" value="Changed UI of whole extension" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
