@@ -24,15 +24,12 @@
     &quot;assignee&quot;: &quot;jenilgoti21&quot;
   }
 }</component>
-  <component name="GithubDefaultAccount">
-    <option name="defaultAccountId" value="c3b86a6a-da69-4958-8752-a4597ee2b855" />
-  </component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/harshil-katrodiya/Study-Tracker.git&quot;,
-    &quot;accountId&quot;: &quot;c3b86a6a-da69-4958-8752-a4597ee2b855&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/harshil-katrodiya/Study-Tracker.git",
+    "accountId": "83929c1d-68f9-4c9a-af7e-1810ce997203"
   }
-}</component>
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -91,7 +88,17 @@
       <workItem from="1744238468461" duration="146000" />
       <workItem from="1744238814261" duration="473000" />
       <workItem from="1744239568206" duration="1912000" />
+      <workItem from="1744251121285" duration="2206000" />
     </task>
+    <task id="LOCAL-00001" summary="Added line graph functionality">
+      <option name="closed" value="true" />
+      <created>1744253324460</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1744253324460</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -107,6 +114,10 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Added line graph functionality" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added line graph functionality" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
