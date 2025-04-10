@@ -578,17 +578,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-  function updateChartTheme() {
-    if (chart) {
-      const colors = getChartColors();
-      chart.options.scales.y.grid.color = colors.borderColor;
-      chart.options.scales.x.grid.color = colors.borderColor;
-      chart.options.scales.y.ticks.color = colors.textColor;
-      chart.options.scales.x.ticks.color = colors.textColor;
-      chart.update();
-    }
-  }
-
   async function updateChart(sessionData) {
     if (chart) chart.destroy(); // Destroy the existing chart before creating a new one
 
@@ -613,7 +602,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }));
 
     const colors = getChartColors();
-    
+
     // Create dataset configuration based on chart type
     const datasets = [{
       label: "Minutes",
@@ -644,6 +633,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             },
             ticks: {
               color: colors.textColor,
+              padding: 5, // Add padding to y-axis ticks
             },
           },
           x: {
@@ -652,6 +642,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             },
             ticks: {
               color: colors.textColor,
+              autoSkip: false, // Prevent automatic skipping of labels
+              maxRotation: 45, // Rotate labels for better fit
+              minRotation: 45, // Ensure consistent rotation
+              padding: 10, // Add padding to ensure labels are visible
+              callback: function(value, index, values) {
+                // Truncate long domain names for better display
+                const label = chartData[index].domain;
+                return label.length > 20 ? label.substr(0, 18) + '...' : label;
+              }
             },
           },
         },
@@ -659,11 +658,47 @@ document.addEventListener("DOMContentLoaded", async () => {
           legend: {
             labels: {
               color: colors.textColor,
+              font: {
+                size: 14, // Increased font size for better visibility
+              }
             },
           },
+          tooltip: {
+            callbacks: {
+              title: function(tooltipItems) {
+                // Show full domain name in tooltip
+                return tooltipItems[0].label;
+              },
+              label: function(context) {
+                return `${context.parsed.y} minutes`;
+              }
+            }
+          }
         },
+        // Add padding to ensure all elements are visible
+        layout: {
+          padding: {
+            top: 10,
+            bottom: 20, // Extra bottom padding for x-axis labels
+            left: 10,
+            right: 10
+          }
+        }
       },
     });
+  }
+
+  function updateChartTheme() {
+    if (chart) {
+      const colors = getChartColors();
+      chart.options.scales.y.grid.color = colors.borderColor;
+      chart.options.scales.x.grid.color = colors.borderColor;
+      chart.options.scales.y.ticks.color = colors.textColor;
+      chart.options.scales.x.ticks.color = colors.textColor;
+      // Also update legend text color when theme changes
+      chart.options.plugins.legend.labels.color = colors.textColor;
+      chart.update();
+    }
   }
 
   function formatTime(ms) {
@@ -772,4 +807,3 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 });
-
