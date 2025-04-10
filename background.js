@@ -83,7 +83,7 @@ const excludedDomains = [
   "w.stripe.com",
   "x.stripe.com",
   "y.stripe.com",
-  "z.stripe.com"
+  "z.stripe.com",
 ];
 
 // Initialize data from storage
@@ -111,6 +111,7 @@ browserAPI.tabs.onRemoved.addListener(handleTabRemoval);
 
 // Periodic check to detect tab changes
 setInterval(checkActiveTab, 60000);
+setInterval(checkActiveTabValidity, 1000); // runs every 5 seconds to stop time on blank tabs
 
 async function checkActiveTab() {
   const tabs = await browserAPI.tabs.query({
@@ -118,6 +119,33 @@ async function checkActiveTab() {
     currentWindow: true,
   });
   if (tabs[0]?.url) handleTabChange(tabs[0]);
+}
+
+async function checkActiveTabValidity() {
+  try {
+    const [tab] = await browserAPI.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    const url = tab?.url;
+
+    if (!url || !isValidUrl(url)) {
+      // This is a blank or non-trackable tab
+      if (studySessionData.currentDomain) {
+        console.log("Blank or invalid tab detected. Ending current session.");
+        saveCurrentStats();
+        clearInterval(
+          studySessionData.activeTimers[studySessionData.currentDomain]
+        );
+        studySessionData.currentDomain = null;
+        studySessionData.startTime = null;
+        studySessionData.lastUpdate = null;
+        saveToStorage();
+      }
+    }
+  } catch (error) {
+    console.error("Error checking active tab validity:", error);
+  }
 }
 
 // Handle tab activation
@@ -204,10 +232,10 @@ function isStripeUrl(url) {
       "/setup",
       "/confirm",
       "/success",
-      "/cancel"
+      "/cancel",
     ];
 
-    return stripePaths.some(stripePath => path.startsWith(stripePath));
+    return stripePaths.some((stripePath) => path.startsWith(stripePath));
   } catch {
     return false;
   }
@@ -327,17 +355,26 @@ async function sendStudyData() {
       }
 
       const today = new Date().toISOString().split("T")[0];
-      const timeSpentInSeconds = studySessionData.dailyStats[today]?.[studySessionData.currentDomain];
+      const timeSpentInSeconds =
+        studySessionData.dailyStats[today]?.[studySessionData.currentDomain];
 
       if (!studySessionData.currentDomain || timeSpentInSeconds === undefined) {
         console.log("No study data available to send.");
         return;
       }
 
+      // Calculate start and end times
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - timeSpentInSeconds * 1000);
+
       const payload = {
         site: studySessionData.currentDomain,
         timeSpentInSeconds,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
       };
+
+      console.log("Sending study data payload:", payload);
 
       let response = await fetch("http://localhost:5001/saveStudyData", {
         method: "POST",
@@ -375,12 +412,15 @@ async function sendStudyData() {
         return;
       }
 
-      throw new Error(`Failed to send data: ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(
+        `Failed to send data: ${errorData.error || response.statusText}`
+      );
     } catch (error) {
       console.error(`Attempt ${retryCount + 1} failed:`, error);
       retryCount++;
       if (retryCount < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 5000 * retryCount)); // Exponential backoff
+        await new Promise((resolve) => setTimeout(resolve, 5000 * retryCount)); // Exponential backoff
       }
     }
   }
@@ -440,7 +480,8 @@ function saveCurrentStats() {
       studySessionData.dailyStats[today][studySessionData.currentDomain] || 0;
 
     // Add elapsed time to daily stats
-    studySessionData.dailyStats[today][studySessionData.currentDomain] += elapsedSeconds;
+    studySessionData.dailyStats[today][studySessionData.currentDomain] +=
+      elapsedSeconds;
   }
 
   // Clear ALL timers
@@ -564,6 +605,16 @@ browserAPI.webRequest.onBeforeRequest.addListener(
 
 // Handle messages from popup
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "GET_WHITELIST") {
+    sendResponse({ domains: whitelistedDomains });
+  } else if (request.type === "UPDATE_WHITELIST") {
+    whitelistedDomains = request.domains;
+    browserAPI.storage.local.set({ whitelistedDomains });
+    sendResponse({ success: true });
+  } else if (request.action === "openDonate") {
+    browserAPI.tabs.create({ url: browserAPI.runtime.getURL("donate.html") });
+  }
+  return true;
   if (request.type === "GET_WHITELIST") {
     sendResponse({ domains: whitelistedDomains });
   } else if (request.type === "UPDATE_WHITELIST") {

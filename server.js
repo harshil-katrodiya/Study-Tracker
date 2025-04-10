@@ -38,17 +38,19 @@ const UserModel = mongoose.model("User", UserSchema);
 const StudySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   site: { type: String, required: true },
-  timeSpentInSeconds: { 
-    type: Number, 
+  startTime: { type: Date, required: true },
+  endTime: { type: Date, required: true },
+  timeSpentInSeconds: {
+    type: Number,
     required: true,
     min: 0,
-    max: 86400 // Maximum 24 hours per session
+    max: 86400, // Maximum 24 hours per session
   },
   timestamp: { type: Date, default: Date.now },
 });
 
 // Add virtual for minutes
-StudySchema.virtual('timeSpentInMinutes').get(function() {
+StudySchema.virtual("timeSpentInMinutes").get(function () {
   return Math.round(this.timeSpentInSeconds / 60);
 });
 
@@ -115,16 +117,20 @@ app.post("/login", async (req, res) => {
     const accessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
-    const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
 
     console.log("Login successful for:", email);
-    res.json({ 
-      message: "Login successful!", 
-      accessToken, 
-      refreshToken, 
-      userId: user._id 
+    res.json({
+      message: "Login successful!",
+      accessToken,
+      refreshToken,
+      userId: user._id,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -147,24 +153,126 @@ const verifyToken = (req, res, next) => {
 app.post("/saveStudyData", verifyToken, async (req, res) => {
   try {
     console.log("Received study data:", req.body);
-    let { site, timeSpentInSeconds } = req.body;
+    let { site, timeSpentInSeconds, startTime, endTime } = req.body;
 
     // Coerce timeSpentInSeconds to a number (in case it is sent as a string)
     timeSpentInSeconds = Number(timeSpentInSeconds);
-    if (!site || isNaN(timeSpentInSeconds)) {
-      return res
-        .status(400)
-        .json({ error: "Site and timeSpentInSeconds are required" });
+    if (!site || isNaN(timeSpentInSeconds) || !startTime || !endTime) {
+      return res.status(400).json({
+        error: "Site, timeSpentInSeconds, startTime, and endTime are required",
+      });
     }
+
     const timeSpentInMinutes = Math.round(timeSpentInSeconds / 60);
 
-    const newData = new StudyModel({
+    // Convert startTime and endTime to Date objects
+    const startTimeDate = new Date(startTime);
+    const endTimeDate = new Date(endTime);
+
+    // Get today's date (start of day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find existing record for the same site on the same day
+    const existingRecord = await StudyModel.findOne({
       userId: req.userId,
       site,
-      timeSpentInSeconds,
-      timeSpentInMinutes,
+      startTime: { $gte: today },
+      endTime: { $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000) },
     });
-    await newData.save();
+
+    if (existingRecord) {
+      // Update existing record
+      existingRecord.endTime = endTimeDate;
+      existingRecord.timeSpentInSeconds += timeSpentInSeconds;
+      await existingRecord.save();
+
+      // Check if total time spent is >= 30 minutes for email notification
+      if (existingRecord.timeSpentInSeconds >= 1) {
+        // 30 minutes in seconds
+        const user = await UserModel.findById(req.userId);
+        if (user) {
+          const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: user.email,
+            subject: "🎉 Study Milestone Achieved!",
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
+                <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                  <h2 style="color: #2d89ef;">Great Job! 🎉</h2>
+                  <p>Hello ${user.firstName},</p>
+                  <p>You've reached a study milestone! You've spent ${Math.round(
+                    existingRecord.timeSpentInSeconds / 60
+                  )} minutes studying on <strong>${site}</strong> today.</p>
+                  <p>Keep up the excellent work! Your dedication to learning is impressive.</p>
+                  <hr style="margin: 30px 0;">
+                  <p style="font-size: 12px; color: #777;">Thank you for using Study Tracker!<br>The Study Tracker Team</p>
+                </div>
+              </div>
+            `,
+          };
+
+          await transporter.sendMail(mailOptions);
+          console.log(`Milestone email sent to ${user.email}`);
+        }
+      }
+    } else {
+      // Create new record
+      const newData = new StudyModel({
+        userId: req.userId,
+        site,
+        startTime: startTimeDate,
+        endTime: endTimeDate,
+        timeSpentInSeconds,
+        timeSpentInMinutes,
+      });
+      await newData.save();
+
+      // Check if time spent is >= 30 minutes for email notification
+      if (timeSpentInSeconds >= 1) {
+        // 30 minutes in seconds
+        const user = await UserModel.findById(req.userId);
+        if (user) {
+          const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: user.email,
+            subject: "🎉 Study Milestone Achieved!",
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
+                <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                  <h2 style="color: #2d89ef;">Great Job! 🎉</h2>
+                  <p>Hello ${user.firstName},</p>
+                  <p>You've reached a study milestone! You've spent ${timeSpentInMinutes} minutes studying on <strong>${site}</strong>.</p>
+                  <p>Keep up the excellent work! Your dedication to learning is impressive.</p>
+                  <hr style="margin: 30px 0;">
+                  <p style="font-size: 12px; color: #777;">Thank you for using Study Tracker!<br>The Study Tracker Team</p>
+                </div>
+              </div>
+            `,
+          };
+
+          await transporter.sendMail(mailOptions);
+          console.log(`Milestone email sent to ${user.email}`);
+        }
+      }
+    }
+
     res.json({ message: "Study data saved successfully!" });
   } catch (error) {
     console.error("Error saving study data:", error);
@@ -383,9 +491,13 @@ app.post("/refresh-token", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const newAccessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    const newAccessToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h",
+      }
+    );
 
     res.json({ accessToken: newAccessToken });
   } catch (error) {
