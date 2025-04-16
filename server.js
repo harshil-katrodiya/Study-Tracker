@@ -246,13 +246,13 @@ app.post("/saveStudyData", verifyToken, async (req, res) => {
           const mailOptions = {
             from: process.env.EMAIL_USER,
             to: user.email,
-            subject: `🎉 You've studied ${nextMilestone} minutes on ${site}!`,
+            subject: `You've spent ${nextMilestone} minutes on ${site}!`,
             html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; color: #333;">
           <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <h2 style="color: #2d89ef;">Awesome Job!</h2>
             <p>Hello ${user.firstName},</p>
-            <p>You've spent <strong>${totalMinutes} minutes</strong> studying on <strong>${site}</strong> today.</p>
+            <p>You've spent <strong>${totalMinutes} minutes</strong> on <strong>${site}</strong> today.</p>
             <p>This marks your <strong>${nextMilestone}-minute milestone</strong>! 🚀</p>
             <hr style="margin: 30px 0;">
             <p style="font-size: 12px; color: #777;">Thanks for using Study Tracker!<br>The Team</p>
