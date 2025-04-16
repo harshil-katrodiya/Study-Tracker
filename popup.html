@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>Study Habit Tracker</title>
     <script src="chart.js"></script>
@@ -403,6 +403,7 @@
         #graphToggle:checked + .slider:before {
             content: "📈";
         }
+        
 
         /* Pomodoro Timer */
         .timer-container {
@@ -728,11 +729,20 @@
         .card {
             animation: fade-in 0.5s ease-out;
         }
+
+        .input-group label {
+        font-weight: 600;       /* Make the label text bolder */
+        color: #1e293b;         /* Adjust color to match your theme */
+        font-size: 1rem;        /* Change font-size if needed */
+        margin-top: 0.5rem;
+    }
+
+        
     </style>
 </head>
 <body>
 <div class="header">
-    <h2><img src="images/icon16.png"></h2>
+    <h2><img src="images/icon16.png" alt="logo image"></h2>
     <div class="header-buttons">
         <button id="themeToggle" class="theme-toggle" title="Toggle theme">
             <span id="themeIcon">🌙</span>
@@ -769,6 +779,7 @@
     <h3><span style="font-size: 1.25rem;">🔒</span>Website Access Control</h3>
     <div class="whitelist-manager">
         <div class="input-group">
+            <label for="domainInput">Add Domain:</label>
             <input type="text" id="domainInput" placeholder="Enter website domain (e.g., google.com)">
             <button id="addDomain" class="btn btn-primary">Add</button>
         </div>
@@ -781,6 +792,7 @@
         </div>
     </div>
 </div>
+
 
 <div class="card">
     <h3><span style="font-size: 1.25rem;">📊</span>User Statistics</h3>
